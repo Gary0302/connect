@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "connect": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/connect-mcp.mjs"],
+      "note": "Bridges Claude Code to the local Codex app-server daemon. Requires the standalone Codex install (curl -fsSL https://chatgpt.com/codex/install.sh | sh)."
+    }
+  }
+}

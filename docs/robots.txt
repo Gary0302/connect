@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gary0302.github.io/connect/sitemap.xml

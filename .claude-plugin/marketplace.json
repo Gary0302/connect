@@ -1,0 +1,13 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "connect-local",
+  "description": "Local marketplace for the Connect plugin",
+  "owner": { "name": "Gary" },
+  "plugins": [
+    {
+      "name": "connect",
+      "source": "./",
+      "description": "Talk to OpenAI Codex from inside Claude Code. Persistent threads on a shared Codex daemon, with cost-aware routing."
+    }
+  ]
+}

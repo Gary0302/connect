@@ -1,0 +1,10 @@
+{
+  "name": "Connect — OpenAI Codex inside Claude Code",
+  "short_name": "Connect",
+  "description": "A Claude Code plugin for second opinions, reviews, and implementation with OpenAI Codex.",
+  "start_url": "/connect/",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#11120f",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

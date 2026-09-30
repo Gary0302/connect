@@ -1,0 +1,22 @@
+{
+  "name": "connect",
+  "version": "0.4.0",
+  "description": "Talk to OpenAI Codex from inside Claude Code. Persistent threads on a shared Codex daemon, with cost-aware routing.",
+  "author": {
+    "name": "Gary"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "mcp",
+    "multi-agent",
+    "second-opinion"
+  ],
+  "commands": [
+    "./commands/ask.md",
+    "./commands/threads.md",
+    "./commands/resume.md",
+    "./commands/doctor.md",
+    "./commands/config.md"
+  ]
+}

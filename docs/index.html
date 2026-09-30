@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connect — OpenAI Codex inside Claude Code</title>
+    <meta name="description" content="Connect is a zero-dependency Claude Code plugin that brings OpenAI Codex into your terminal for second opinions, code reviews, implementation, and persistent conversations." />
+    <meta name="keywords" content="Claude Code plugin, OpenAI Codex, Codex MCP, Claude Code MCP, AI code review, multi-model coding" />
+    <meta name="author" content="Gary" />
+    <meta name="theme-color" content="#0c0d0b" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://gary0302.github.io/connect/" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gary0302.github.io/connect/" />
+    <meta property="og:title" content="Connect — Two models. One terminal. Better decisions." />
+    <meta property="og:description" content="Ask OpenAI Codex from inside Claude Code. Persistent threads, cost-aware routing, and safe workspace access." />
+    <meta property="og:image" content="https://gary0302.github.io/connect/og-image.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Connect — OpenAI Codex inside Claude Code" />
+    <meta name="twitter:description" content="A zero-dependency Claude Code plugin for independent reviews, second opinions, and implementation with Codex." />
+    <meta name="twitter:image" content="https://gary0302.github.io/connect/og-image.svg" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Connect",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS, Linux",
+        "description": "A zero-dependency Claude Code plugin that brings OpenAI Codex into Claude Code for second opinions, code review, implementation, and persistent conversations.",
+        "softwareVersion": "0.4.0",
+        "license": "https://opensource.org/license/mit",
+        "codeRepository": "https://github.com/Gary0302/connect",
+        "url": "https://gary0302.github.io/connect/",
+        "author": { "@type": "Person", "name": "Gary" },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <a class="brand" href="#top" aria-label="Connect home">
+        <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 9.5a8.5 8.5 0 1 0 0 17h3v-5h-3a3.5 3.5 0 1 1 0-7h4.5v-5H11Z"/><path d="M25 9.5h-3v5h3a3.5 3.5 0 1 1 0 7h-4.5v5H25a8.5 8.5 0 1 0 0-17Z"/><path d="M12.5 15.5h11v5h-11z"/></svg>
+        <span>Connect</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#why">Why Connect</a>
+        <a href="#examples">Examples</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="button button-small button-ghost" href="https://github.com/Gary0302/connect" target="_blank" rel="noreferrer">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-copy reveal">
+          <div class="eyebrow"><span class="status-dot"></span> Claude Code plugin · v0.4.0</div>
+          <h1>Two models.<br /><em>One terminal.</em><br />Better decisions.</h1>
+          <p class="hero-lede">Bring OpenAI Codex into Claude Code for an independent review, a second opinion, or a focused implementation—without breaking your flow.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#install">Install Connect <span aria-hidden="true">↓</span></a>
+            <a class="button button-text" href="https://github.com/Gary0302/connect" target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="hero-proof" aria-label="Project highlights">
+            <span>Zero dependencies</span><span>Persistent threads</span><span>MIT licensed</span>
+          </div>
+        </div>
+
+        <div class="terminal-wrap reveal" aria-label="Connect example in a terminal">
+          <div class="terminal-shadow"></div>
+          <div class="terminal">
+            <div class="terminal-bar">
+              <div class="traffic"><i></i><i></i><i></i></div>
+              <span>claude — ~/project</span>
+              <span class="terminal-meta">zsh</span>
+            </div>
+            <div class="terminal-body">
+              <div class="term-line"><span class="prompt">❯</span> <span class="command">/connect:ask</span> Review the auth diff for race conditions</div>
+              <div class="term-space"></div>
+              <div class="term-label"><span>CONNECT</span><b>CODE REVIEW</b></div>
+              <div class="term-output">Codex found a check-then-write race in</div>
+              <div class="term-output"><span class="file">src/session.mjs:184</span>. Two concurrent refreshes</div>
+              <div class="term-output">can both pass the stale-token check.</div>
+              <div class="term-space small"></div>
+              <div class="term-output dim">Suggested fix: make the token comparison and</div>
+              <div class="term-output dim">write atomic under the existing lease.</div>
+              <div class="term-rule"></div>
+              <div class="term-stats"><span>thread: 019b…f31a</span><span>gpt-5.6 · high · read-only</span></div>
+              <div class="term-line cursor-line"><span class="prompt">❯</span><span class="cursor"></span></div>
+            </div>
+          </div>
+          <div class="floating-note note-one"><span>01</span> Independent context</div>
+          <div class="floating-note note-two"><span>02</span> Scoped access</div>
+        </div>
+      </section>
+
+      <section class="trust-strip" aria-label="Core capabilities">
+        <p>Built for the moment when <strong>one model is not enough.</strong></p>
+        <div class="marquee" aria-hidden="true">
+          <span>SECOND OPINIONS</span><i>✦</i><span>CODE REVIEWS</span><i>✦</i><span>DEEP REASONING</span><i>✦</i><span>IMPLEMENTATION</span><i>✦</i><span>PERSISTENT MEMORY</span>
+        </div>
+      </section>
+
+      <section class="section why" id="why">
+        <div class="section-kicker reveal">01 / Why Connect</div>
+        <div class="section-heading reveal">
+          <h2>Another perspective,<br />right where you work.</h2>
+          <p>Claude stays in charge of the session. Codex joins only when a different model can improve the answer.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card feature-wide reveal">
+            <div class="feature-number">01</div>
+            <div class="feature-content">
+              <h3>Independent by design</h3>
+              <p>Codex reads the actual working tree and reaches its own conclusion. Ask for a sanity check, challenge an architecture choice, or review a risky diff.</p>
+              <div class="mini-dialogue">
+                <div><span>CLAUDE</span><p>I’d use an optimistic lock here.</p></div>
+                <div><span>CODEX</span><p>That works, but the retry path can starve under burst traffic.</p></div>
+              </div>
+            </div>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-number">02</div>
+            <div class="feature-icon route-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            <h3>Spend thought where it matters</h3>
+            <p>Five intent routes choose the reasoning effort, token ceiling, and sandbox for each task.</p>
+            <a href="#routes">See the routing table <span>→</span></a>
+          </article>
+          <article class="feature-card dark-card reveal">
+            <div class="feature-number">03</div>
+            <div class="thread-art" aria-hidden="true"><span></span><span></span><span></span><b></b></div>
+            <h3>Pick up where you left off</h3>
+            <p>Threads live on the shared Codex daemon. Resume a conversation after Claude Code restarts—or even after a reboot.</p>
+            <code>/connect:resume 019b…</code>
+          </article>
+          <article class="feature-card feature-wide safety reveal">
+            <div class="feature-number">04</div>
+            <div class="feature-content">
+              <h3>Read-only until you say otherwise</h3>
+              <p>Questions, reviews, and deep reasoning run read-only. Only the explicit <code>implement</code> route can write, and it stays inside the workspace.</p>
+              <div class="safety-row">
+                <span><i class="lock"></i> review <b>read-only</b></span>
+                <span><i class="lock"></i> reasoning <b>read-only</b></span>
+                <span class="write"><i class="pen"></i> implement <b>workspace-write</b></span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section examples" id="examples">
+        <div class="section-kicker light reveal">02 / See it in action</div>
+        <div class="section-heading light reveal">
+          <h2>Ask naturally.<br />Get a second mind.</h2>
+          <p>Use a slash command, or simply tell Claude to ask Codex. Connect chooses the right amount of reasoning for the job.</p>
+        </div>
+
+        <div class="example-shell reveal">
+          <div class="example-tabs" role="tablist" aria-label="Connect examples">
+            <button role="tab" aria-selected="true" aria-controls="example-review" id="tab-review" data-example="review">Code review</button>
+            <button role="tab" aria-selected="false" aria-controls="example-opinion" id="tab-opinion" data-example="opinion">Second opinion</button>
+            <button role="tab" aria-selected="false" aria-controls="example-deep" id="tab-deep" data-example="deep">Deep reasoning</button>
+            <button role="tab" aria-selected="false" aria-controls="example-build" id="tab-build" data-example="build">Implement</button>
+          </div>
+          <div class="example-window">
+            <div class="example-code active" id="example-review" role="tabpanel" aria-labelledby="tab-review" data-panel="review">
+              <div class="code-label">YOU → CLAUDE</div>
+              <p>Ask Codex to review the payment callback diff for security issues.</p>
+              <div class="connector"><i></i><span>Connect routes as <b>code_review</b></span></div>
+              <div class="code-label green">CODEX</div>
+              <p class="response">Two issues: the signature is compared after parsing attacker-controlled fields, and the idempotency key is written after fulfilment. Verify the raw body first, then claim the key atomically.</p>
+            </div>
+            <div class="example-code" id="example-opinion" role="tabpanel" aria-labelledby="tab-opinion" data-panel="opinion" hidden>
+              <div class="code-label">YOU → CLAUDE</div>
+              <p>Get a second opinion from Codex: should this cache live in-process or in Redis?</p>
+              <div class="connector"><i></i><span>Connect routes as <b>second_opinion</b></span></div>
+              <div class="code-label green">CODEX</div>
+              <p class="response">Keep it in-process while one worker owns each key. Move to Redis only when cross-worker consistency becomes a real requirement; today it adds a network dependency without solving an observed problem.</p>
+            </div>
+            <div class="example-code" id="example-deep" role="tabpanel" aria-labelledby="tab-deep" data-panel="deep" hidden>
+              <div class="code-label">YOU → CLAUDE</div>
+              <p>Have Codex stress-test the lease protocol for split-brain and clock skew.</p>
+              <div class="connector"><i></i><span>Connect routes as <b>deep_reasoning</b></span></div>
+              <div class="code-label green">CODEX</div>
+              <p class="response">Wall-clock expiry alone cannot fence a paused writer. Add a monotonically increasing token to every lease and require it on writes; the storage layer must reject tokens older than the latest issued value.</p>
+            </div>
+            <div class="example-code" id="example-build" role="tabpanel" aria-labelledby="tab-build" data-panel="build" hidden>
+              <div class="code-label">YOU → CLAUDE</div>
+              <p>Ask Codex to implement the fix and update the focused test.</p>
+              <div class="connector write-connector"><i></i><span>Connect routes as <b>implement</b></span></div>
+              <div class="code-label green">CODEX</div>
+              <p class="response">Updated the lease guard to reject stale fencing tokens and added a concurrent-writer regression test. The focused suite passes: 18 checks, 0 failures.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section routes" id="routes">
+        <div class="section-kicker reveal">03 / Built-in judgment</div>
+        <div class="section-heading reveal">
+          <h2>Every question gets<br />the right-sized brain.</h2>
+          <p>A one-line fact should not cost the same as a race-condition audit. Connect pins effort and a token ceiling on every turn.</p>
+        </div>
+        <div class="route-table reveal">
+          <div class="route-row route-head"><span>Intent</span><span>Effort</span><span>Access</span><span>Best for</span></div>
+          <div class="route-row"><span><i class="route-dot lime"></i>quick_answer</span><span>Low</span><span class="pill">Read-only</span><span>Facts, versions, one-liners</span></div>
+          <div class="route-row"><span><i class="route-dot blue"></i>second_opinion</span><span>Medium</span><span class="pill">Read-only</span><span>Judgment calls and sanity checks</span></div>
+          <div class="route-row"><span><i class="route-dot orange"></i>code_review</span><span>High</span><span class="pill">Read-only</span><span>Diffs, defects, regressions</span></div>
+          <div class="route-row"><span><i class="route-dot violet"></i>deep_reasoning</span><span>X-high</span><span class="pill">Read-only</span><span>Architecture, protocols, races</span></div>
+          <div class="route-row"><span><i class="route-dot coral"></i>implement</span><span>High</span><span class="pill pill-write">Workspace-write</span><span>Focused code changes</span></div>
+        </div>
+        <p class="route-note reveal"><span>Measured in development:</span> an un-routed one-line question inherited x-high effort and used 273k tokens. The <code>quick_answer</code> route cut that to about 16k.</p>
+      </section>
+
+      <section class="section how" id="how">
+        <div class="section-kicker reveal">04 / How it works</div>
+        <div class="section-heading reveal">
+          <h2>A small bridge between<br />two powerful tools.</h2>
+        </div>
+        <div class="flow reveal" aria-label="Claude Code sends a routed request through Connect to a shared Codex daemon">
+          <div class="flow-node"><b>01</b><span>Claude Code</span><small>Your active session</small></div>
+          <div class="flow-line"><span>prompt + intent</span><i></i></div>
+          <div class="flow-node connect-node"><b>02</b><span>Connect</span><small>MCP + routing</small></div>
+          <div class="flow-line"><span>scoped turn</span><i></i></div>
+          <div class="flow-node"><b>03</b><span>Codex daemon</span><small>Persistent threads</small></div>
+        </div>
+        <div class="command-grid reveal">
+          <article><code>/connect:ask</code><p>Ask Codex and start a persistent thread.</p></article>
+          <article><code>/connect:threads</code><p>List recent conversations.</p></article>
+          <article><code>/connect:resume</code><p>Continue with full thread memory.</p></article>
+          <article><code>/connect:config</code><p>Choose model, effort, and ceilings.</p></article>
+          <article><code>/connect:doctor</code><p>Check daemon and integration health.</p></article>
+        </div>
+      </section>
+
+      <section class="install" id="install">
+        <div class="install-copy reveal">
+          <div class="section-kicker light">05 / Get connected</div>
+          <h2>One install.<br />A second perspective.</h2>
+          <p>Connect has no npm dependencies. Install the standalone Codex app, add the marketplace, then run the health check.</p>
+          <div class="requirements"><span>Requires Node.js 20+</span><span>Claude Code</span><span>Codex app</span></div>
+        </div>
+        <div class="install-terminal reveal">
+          <div class="install-tabs"><span>Terminal</span><button class="copy-all" data-copy-target="install-code">Copy all</button></div>
+          <pre id="install-code"><code><span class="comment"># 1. Install the standalone Codex app</span>
+<span class="shell">$</span> curl -fsSL https://chatgpt.com/codex/install.sh | sh
+
+<span class="comment"># 2. Add Connect to Claude Code</span>
+<span class="shell">$</span> claude plugin marketplace add Gary0302/connect
+<span class="shell">$</span> claude plugin install connect@connect-local
+
+<span class="comment"># 3. Restart Claude Code, then verify</span>
+<span class="shell">$</span> /connect:doctor</code></pre>
+        </div>
+      </section>
+
+      <section class="section faq" id="faq">
+        <div class="section-kicker reveal">06 / Questions</div>
+        <div class="section-heading reveal"><h2>The practical details.</h2></div>
+        <div class="faq-list">
+          <details class="reveal"><summary>Does Connect send my code to another service?<span></span></summary><p>Connect asks the local Codex app-server to run Codex against your working directory. The same OpenAI account and Codex setup you already use apply. Review and reasoning routes are read-only; only the explicit implementation route can edit workspace files.</p></details>
+          <details class="reveal"><summary>Does it install npm packages?<span></span></summary><p>No. The plugin and MCP server use Node.js built-ins only. You do need the standalone Codex installation because Connect talks to its shared local daemon.</p></details>
+          <details class="reveal"><summary>Can I continue an earlier conversation?<span></span></summary><p>Yes. Every answer includes a thread ID. Use <code>/connect:resume &lt;threadId&gt; &lt;question&gt;</code>, or list recent conversations with <code>/connect:threads</code>.</p></details>
+          <details class="reveal"><summary>Can I choose the Codex model and reasoning level?<span></span></summary><p>Yes. <code>/connect:config</code> opens an interactive picker for the model, effort, token ceilings, and what should happen to existing threads after a model change.</p></details>
+          <details class="reveal"><summary>Why use two coding models?<span></span></summary><p>They fail differently. An independent model can spot an assumption the first model carried through its entire answer. Connect makes that cross-check quick enough to use on the decisions that deserve it.</p></details>
+        </div>
+      </section>
+
+      <section class="final-cta">
+        <div class="final-mark" aria-hidden="true"><span>C</span><span>C</span></div>
+        <p>Claude Code, meet Codex.</p>
+        <h2>Give your code<br />a second opinion.</h2>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#install">Install Connect <span>↓</span></a>
+          <a class="button button-text light-text" href="https://github.com/Gary0302/connect" target="_blank" rel="noreferrer">Star on GitHub <span>↗</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand footer-brand" href="#top"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M11 9.5a8.5 8.5 0 1 0 0 17h3v-5h-3a3.5 3.5 0 1 1 0-7h4.5v-5H11Z"/><path d="M25 9.5h-3v5h3a3.5 3.5 0 1 1 0 7h-4.5v5H25a8.5 8.5 0 1 0 0-17Z"/><path d="M12.5 15.5h11v5h-11z"/></svg><span>Connect</span></a>
+      <p>Open source under the MIT License.<br />Built for Claude Code + OpenAI Codex.</p>
+      <div><a href="https://github.com/Gary0302/connect">GitHub</a><a href="https://github.com/Gary0302/connect/issues">Issues</a><a href="#top">Back to top ↑</a></div>
+    </footer>
+    <script src="app.js" defer></script>
+  </body>
+</html>
