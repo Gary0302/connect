@@ -1,15 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#11120f"/>
-  <circle cx="1050" cy="30" r="420" fill="#cbff46" opacity=".1"/>
-  <g transform="translate(86 78)">
-    <rect width="54" height="54" rx="10" fill="#cbff46"/>
-    <path d="M20 13a14 14 0 1 0 0 28h4v-8h-4a6 6 0 1 1 0-12h7v-8h-7Zm14 0h-4v8h4a6 6 0 1 1 0 12h-7v8h7a14 14 0 1 0 0-28Z" fill="#11120f"/>
-    <path d="M21 24h14v7H21z" fill="#11120f"/>
-  </g>
-  <text x="158" y="118" fill="#f3f0e8" font-family="Arial, sans-serif" font-size="32" font-weight="700">Connect</text>
-  <text x="86" y="275" fill="#f3f0e8" font-family="Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="-4">Two models. One terminal.</text>
-  <text x="86" y="366" fill="#cbff46" font-family="Georgia, serif" font-size="82" font-style="italic">Better decisions.</text>
-  <text x="86" y="458" fill="#a5a79f" font-family="Arial, sans-serif" font-size="26">OpenAI Codex inside Claude Code.</text>
-  <rect x="86" y="510" width="262" height="54" fill="#cbff46"/>
-  <text x="111" y="545" fill="#11120f" font-family="monospace" font-size="18" font-weight="700">github.com/Gary0302/connect</text>
+  <rect width="1200" height="630" fill="#fafaf8"/>
+  <circle cx="92" cy="88" r="18" fill="#b7ee38" stroke="#171816" stroke-width="3"/>
+  <text x="128" y="101" fill="#171816" font-family="Arial,sans-serif" font-size="36" font-weight="700">Connect</text>
+  <text x="78" y="290" fill="#171816" font-family="Arial,sans-serif" font-size="84" font-weight="700">Connect Codex</text>
+  <text x="78" y="390" fill="#171816" font-family="Arial,sans-serif" font-size="84" font-weight="700">in Claude Code</text>
+  <text x="80" y="490" fill="#666961" font-family="Arial,sans-serif" font-size="28">Ask another model without leaving your session.</text>
 </svg>

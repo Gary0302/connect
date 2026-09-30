@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Connect — Ask Codex from Claude Code</title>
-    <meta name="description" content="A simple, zero-dependency Claude Code plugin for asking OpenAI Codex for a second opinion, code review, or implementation." />
-    <meta name="keywords" content="Claude Code plugin, OpenAI Codex, Codex MCP, AI code review, second opinion" />
+    <title>Connect Codex in Claude Code</title>
+    <meta name="description" content="Connect OpenAI Codex to Claude Code for second opinions and code review. Install the zero-dependency plugin in two steps." />
+    <meta name="keywords" content="Claude Code plugin, OpenAI Codex, Codex MCP, AI code review" />
     <meta name="author" content="Gary" />
-    <meta name="theme-color" content="#f7f7f4" />
+    <meta name="theme-color" content="#fafaf8" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://gary0302.github.io/connect/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -15,143 +15,87 @@
     <link rel="stylesheet" href="styles.css" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://gary0302.github.io/connect/" />
-    <meta property="og:title" content="Connect — Ask Codex from Claude Code" />
-    <meta property="og:description" content="A zero-dependency bridge from Claude Code to OpenAI Codex, with persistent threads and safe task routing." />
+    <meta property="og:title" content="Connect Codex in Claude Code" />
+    <meta property="og:description" content="Ask Codex for a second opinion without leaving Claude Code." />
     <meta property="og:image" content="https://gary0302.github.io/connect/og-image.svg" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Connect — Ask Codex from Claude Code" />
-    <meta name="twitter:description" content="Second opinions, code reviews, and implementation with Codex—without leaving Claude Code." />
+    <meta name="twitter:title" content="Connect Codex in Claude Code" />
+    <meta name="twitter:description" content="Ask Codex for a second opinion without leaving Claude Code." />
     <meta name="twitter:image" content="https://gary0302.github.io/connect/og-image.svg" />
     <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Connect",
-        "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "macOS, Linux",
-        "description": "A zero-dependency Claude Code plugin for asking OpenAI Codex for a second opinion, code review, or implementation.",
-        "softwareVersion": "0.4.0",
-        "license": "https://opensource.org/license/mit",
-        "codeRepository": "https://github.com/Gary0302/connect",
-        "url": "https://gary0302.github.io/connect/",
-        "author": { "@type": "Person", "name": "Gary" },
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-      }
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Connect","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","description":"Connect OpenAI Codex to Claude Code for second opinions and code review.","softwareVersion":"0.4.0","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Gary0302/connect","url":"https://gary0302.github.io/connect/","author":{"@type":"Person","name":"Gary"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
     </script>
   </head>
   <body>
-    <a class="skip" href="#main">Skip to content</a>
     <header>
-      <a class="logo" href="#top"><span></span>Connect</a>
-      <nav aria-label="Main navigation">
-        <a href="#install">Install</a>
-        <a href="#story">Story</a>
-        <a href="#commands">Commands</a>
-        <a href="https://github.com/Gary0302/connect">GitHub ↗</a>
-      </nav>
+      <a class="brand" href="#top"><i></i> Connect</a>
+      <a href="https://github.com/Gary0302/connect">GitHub ↗</a>
     </header>
 
-    <main id="main">
-      <section class="hero" id="top">
-        <p class="label">Claude Code plugin · open source</p>
-        <h1>Ask Codex.<br />Stay in Claude Code.</h1>
-        <p class="intro">Connect gives Claude a direct line to OpenAI Codex for a second opinion, a careful code review, or a focused implementation.</p>
-        <div class="actions">
-          <a class="primary" href="#install">Install Connect</a>
-          <a class="secondary" href="https://github.com/Gary0302/connect">View on GitHub ↗</a>
-        </div>
-        <pre class="example"><code><span>you</span>  Ask Codex to review the auth diff for race conditions.
+    <main id="top">
+      <section class="hero">
+        <p class="eyebrow">Open-source Claude Code plugin</p>
+        <h1>Connect Codex<br />in Claude Code</h1>
+        <p class="lead">Ask OpenAI Codex for a second opinion or code review without leaving your Claude Code session.</p>
 
-<span>codex</span>  The refresh path has a check-then-write race in
-       src/session.mjs. Make the token check and write atomic.</code></pre>
-      </section>
-
-      <section id="install">
-        <div class="section-title">
-          <p class="label">Install</p>
-          <h2>Three commands.<br />No npm install.</h2>
-        </div>
-        <div class="install-box">
-          <div class="install-head"><span>Terminal</span><button type="button" data-copy="install-code">Copy all</button></div>
-          <pre id="install-code"><code><span># Install the standalone Codex app</span>
-curl -fsSL https://chatgpt.com/codex/install.sh | sh
-
-<span># Add and install Connect</span>
-claude plugin marketplace add Gary0302/connect
+        <div class="install" id="install">
+          <div class="install-title"><b>Install</b><button type="button" data-copy="install-code">Copy</button></div>
+          <pre id="install-code"><code>claude plugin marketplace add Gary0302/connect
 claude plugin install connect@connect-local</code></pre>
         </div>
-        <p class="after-install">Restart Claude Code, then run <code>/connect:doctor</code>. That’s it.</p>
-        <p class="requirements">Requires macOS or Linux, Node.js 18+, Claude Code, and a signed-in standalone Codex app.</p>
+        <p class="note">Then restart Claude Code and run <code>/connect:doctor</code>.</p>
+        <p class="verified"><span>✓</span> Tested with Claude Code 2.1.286 — plugin 0.4.0 installed and enabled.</p>
       </section>
 
-      <section class="split" id="about">
-        <div class="section-title">
-          <p class="label">Why it exists</p>
-          <h2>A second model catches different mistakes.</h2>
-        </div>
-        <div class="prose">
-          <p>Claude stays in charge of your session. When another perspective would help, it asks Codex against the real working tree and brings the answer back.</p>
-          <p>Each request gets an explicit reasoning level, token ceiling, and sandbox. Reviews stay read-only. Only an <code>implement</code> request can write inside the workspace.</p>
-          <p>Codex threads persist across Claude Code restarts, daemon restarts, and reboots, so an earlier discussion can continue without starting over.</p>
-        </div>
-      </section>
+      <section class="conversation" id="example">
+        <p class="eyebrow">How it looks</p>
+        <h2>Claude calls Codex when a second opinion helps.</h2>
 
-      <section id="story">
-        <div class="section-title">
-          <p class="label">A real session</p>
-          <h2>This README was reviewed through Connect.</h2>
-        </div>
-        <div class="story-grid">
-          <div class="story-lead">
-            <p>Claude read the repository, rewrote its README, then asked Codex to check the documentation against the code.</p>
-            <p>The first review reached the 200k-token ceiling before returning an answer. Claude resumed the same persistent thread, asked Codex to answer from what it had already read, and then verified every useful point against the source.</p>
+        <div class="terminal" aria-label="Example of Claude calling Codex through Connect">
+          <div class="terminal-bar"><span>claude</span><span>● ● ●</span></div>
+          <div class="terminal-body">
+            <p><b class="prompt">❯</b> Read this directory and improve the README.</p>
+            <p><b>Claude</b> I checked the source and rewrote the README. It makes several claims about concurrency and the shared daemon, so I’m asking Codex for an independent review.</p>
+            <div class="tool-call">
+              <span>CONNECT</span>
+              <code>codex_ask · code_review · read-only</code>
+            </div>
+            <p><b>Codex</b> Three claims need correction: lease protection is process-local, history output is truncated, and shared TUI threads require the remote socket.</p>
+            <p><b>Claude</b> I checked those findings against the code. They hold up, so I corrected the README.</p>
+            <p class="done">✓ Done</p>
           </div>
-          <ol>
-            <li><b>Codex challenged the claims.</b><span>It found that lease protection was process-local, history output was truncated, and shared TUI threads required a specific remote connection.</span></li>
-            <li><b>Claude checked the code.</b><span>It confirmed the valid findings and corrected the README, including sandbox, approval, testing, and token-budget details.</span></li>
-            <li><b>The thread survived the interruption.</b><span>The two review turns used about 330k tokens in total, but the second continued with the first turn’s context intact.</span></li>
-          </ol>
-        </div>
-        <blockquote>That is the point of Connect: another model can question assumptions the first model carried through its work.</blockquote>
-      </section>
-
-      <section id="commands">
-        <div class="section-title"><p class="label">Use it</p><h2>Five commands.</h2></div>
-        <div class="command-list">
-          <div><code>/connect:ask &lt;question&gt;</code><span>Ask Codex in a persistent thread.</span></div>
-          <div><code>/connect:threads</code><span>List recent Codex conversations.</span></div>
-          <div><code>/connect:resume &lt;threadId&gt; &lt;question&gt;</code><span>Continue an earlier conversation.</span></div>
-          <div><code>/connect:config</code><span>Choose the model, effort, and token ceilings.</span></div>
-          <div><code>/connect:doctor</code><span>Check the daemon and integration health.</span></div>
         </div>
       </section>
 
-      <section class="routing">
-        <div class="section-title"><p class="label">Automatic routing</p><h2>Use the right amount of reasoning.</h2></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Intent</th><th>Effort</th><th>Access</th><th>Use for</th></tr></thead>
-            <tbody>
-              <tr><td><code>quick_answer</code></td><td>Low</td><td>Read-only</td><td>Facts and one-liners</td></tr>
-              <tr><td><code>second_opinion</code></td><td>Medium</td><td>Read-only</td><td>Judgment calls</td></tr>
-              <tr><td><code>code_review</code></td><td>High</td><td>Read-only</td><td>Diffs and defects</td></tr>
-              <tr><td><code>deep_reasoning</code></td><td>X-high</td><td>Read-only</td><td>Architecture and races</td></tr>
-              <tr><td><code>implement</code></td><td>High</td><td>Workspace-write</td><td>Focused code changes</td></tr>
-            </tbody>
-          </table>
-        </div>
+      <section class="about">
+        <p class="eyebrow">What it does</p>
+        <h2>One small bridge between two coding agents.</h2>
+        <p>Connect runs as a local MCP server. Claude can ask Codex to inspect the working tree, keep a conversation across sessions, and choose a safe amount of reasoning for each request. Reviews are read-only. Only an explicit implementation request can write inside the workspace.</p>
       </section>
 
-      <section class="final">
-        <h2>Give your work<br />a second opinion.</h2>
-        <div class="actions"><a class="primary" href="#install">Install Connect</a><a class="secondary" href="https://github.com/Gary0302/connect">Read the source ↗</a></div>
+      <section class="docs" id="docs">
+        <details>
+          <summary>Commands and technical details <span>+</span></summary>
+          <div class="docs-body">
+            <p><code>/connect:ask &lt;question&gt;</code> — ask Codex</p>
+            <p><code>/connect:threads</code> — list recent threads</p>
+            <p><code>/connect:resume &lt;threadId&gt; &lt;question&gt;</code> — continue a thread</p>
+            <p><code>/connect:config</code> — choose model and reasoning effort</p>
+            <p><code>/connect:doctor</code> — check the integration</p>
+            <a href="https://github.com/Gary0302/connect#readme">Read full documentation on GitHub ↗</a>
+          </div>
+        </details>
+      </section>
+
+      <section class="cta">
+        <h2>Ready to connect?</h2>
+        <a href="#install">Install the plugin ↑</a>
       </section>
     </main>
 
     <footer>
-      <a class="logo" href="#top"><span></span>Connect</a>
-      <p>MIT licensed · Built for Claude Code + OpenAI Codex</p>
-      <a href="https://github.com/Gary0302/connect">GitHub ↗</a>
+      <span>Connect · MIT License</span>
+      <a href="https://github.com/Gary0302/connect">Source on GitHub ↗</a>
     </footer>
     <script src="app.js" defer></script>
   </body>
