@@ -2,7 +2,7 @@
   <rect width="1200" height="630" fill="#fafaf8"/>
   <circle cx="92" cy="88" r="18" fill="#b7ee38" stroke="#171816" stroke-width="3"/>
   <text x="128" y="101" fill="#171816" font-family="Arial,sans-serif" font-size="36" font-weight="700">Connect</text>
-  <text x="78" y="290" fill="#171816" font-family="Arial,sans-serif" font-size="84" font-weight="700">Connect Codex</text>
-  <text x="78" y="390" fill="#171816" font-family="Arial,sans-serif" font-size="84" font-weight="700">in Claude Code</text>
-  <text x="80" y="490" fill="#666961" font-family="Arial,sans-serif" font-size="28">Ask another model without leaving your session.</text>
+  <text x="78" y="280" fill="#171816" font-family="Arial,sans-serif" font-size="76" font-weight="700">Let Claude Code get a</text>
+  <text x="78" y="372" fill="#171816" font-family="Arial,sans-serif" font-size="76" font-weight="700">second opinion from Codex.</text>
+  <text x="80" y="480" fill="#62655d" font-family="Arial,sans-serif" font-size="28">Free, open-source Claude Code plugin · gary0302.github.io/connect</text>
 </svg>
