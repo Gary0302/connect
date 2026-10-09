@@ -6,7 +6,7 @@ description: Ask OpenAI Codex for a second opinion, an independent review, or a 
 
 # Connect — Codex from inside Claude Code
 
-Connect gives you four MCP tools backed by a local Codex daemon. Threads persist, so a
+Connect gives you five MCP tools backed by a local Codex daemon, plus three for the Antigravity CLI (see below). Threads persist, so a
 conversation with Codex can span the whole session and be resumed later.
 
 ## Choosing an intent
@@ -52,6 +52,15 @@ re-ask with a higher intent or narrow the question.
 Do not route work to Codex that you can simply do. It costs real tokens and adds latency. Reach
 for it when a second, independent model genuinely changes the answer's reliability: contested
 design calls, subtle concurrency, security-sensitive review, or when the user asks.
+
+## Antigravity (agy) as another peer
+
+`agy_ask` asks Google's Antigravity CLI (Gemini by default) instead of Codex. Use it when the user
+asks for Antigravity, agy or Gemini, or when a third independent view is worth the cost. It takes
+the same intents except `implement` — agy is always read-only. Its result ends with a
+`conversation:` id; pass it back as `conversationId` to continue, and `agy_threads` lists earlier
+ones. Report its answer as agy's view, just as with Codex. `agy_doctor` shows its version and
+models; pass a model id as `model` only when the user asks for one.
 
 ## If something is broken
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Connect MCP server — exposes Codex to Claude Code as tools.
+ * Connect MCP server — exposes Codex (and the Antigravity CLI, agy) to Claude Code as tools.
  *
  * Speaks MCP over stdio (JSON-RPC 2.0, newline-delimited). No dependencies, to
  * match the rest of the project: a plugin that needs `npm install` before it
@@ -15,9 +15,10 @@ import { LeaseRegistry } from "../src/lease.mjs";
 import { ConnectSession } from "../src/session.mjs";
 import { ROUTES, classify } from "../src/router.mjs";
 import { loadConfig, saveConfig, applyPatch, effectivePolicy, configPath, MODEL_CHANGE } from "../src/config.mjs";
+import { agyAsk, agyPolicy, agyRun, resolveAgyBin, recordTurn, listConversations, conversationCwd, AGY_CEILINGS } from "../src/agy-client.mjs";
 import { createInterface } from "node:readline";
 
-const SERVER = { name: "connect", version: "0.4.0" };
+const SERVER = { name: "connect", version: "0.5.0" };
 
 /**
  * Returned from `initialize` and injected into the client's context for the
@@ -53,7 +54,14 @@ TURN FAILED, the answer is partial: say so rather than presenting it as complete
 
 If something looks broken, run codex_doctor. If it reports a version mismatch, tell the user; the
 fix restarts the daemon and drops every attached Codex session, including any TUI they have open.
-Never run that for them.`;
+Never run that for them.
+
+agy_ask reaches a second, different peer: Google's Antigravity CLI (Gemini by default), run as
+one headless \`agy\` process per turn. It takes the same intents except \`implement\` — headless
+agy cannot write without full-disk permissions, so it is read-only, always. Its result ends with a
+conversation id; pass it back as \`conversationId\` to continue. Use it when the user asks for
+Antigravity, agy or Gemini, or when a third independent view is worth the cost; the same rules
+apply: report its view as its view, and say so when a result is INTERRUPTED or FAILED.`;
 const leases = new LeaseRegistry();
 
 let codex = null;
@@ -83,6 +91,9 @@ async function client() {
 
 /** Shared with the CLI, so the two cannot drive different codex installs. */
 const codexBin = resolveCodexBin;
+
+/** Shared turn time cap for both peers; the 5 min session default killed max-effort research. */
+const turnTimeoutMs = () => Number(process.env.CONNECT_TURN_TIMEOUT_MS) || 3_600_000;
 
 const TOOLS = [
   {
@@ -181,6 +192,46 @@ const TOOLS = [
       "Health of the Codex integration: daemon status, CLI/app-server version match, socket, remote control state.",
     inputSchema: { type: "object", properties: {} },
   },
+  {
+    name: "agy_ask",
+    description:
+      "Ask Google's Antigravity CLI (agy; Gemini by default) a question, as a second peer model beside " +
+      "Codex. Each call is one headless agy turn that can read the working directory; it is always " +
+      "read-only, so the `implement` intent is refused. Pass conversationId to continue an earlier agy " +
+      "conversation with its memory intact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "What to ask agy." },
+        intent: {
+          type: "string",
+          enum: Object.keys(AGY_CEILINGS),
+          description:
+            "Routing profile; picks reasoning effort and the token ceiling. ALWAYS set this; omitting it " +
+            "guesses from the prompt.",
+        },
+        conversationId: { type: "string", description: "Continue this existing agy conversation." },
+        model: { type: "string", description: "agy model id (see agy_doctor). Omit for agy's own default." },
+        cwd: { type: "string", description: "Working directory for a new conversation. Defaults to the current one." },
+      },
+      required: ["prompt"],
+    },
+  },
+  {
+    name: "agy_threads",
+    description:
+      "List the agy conversations Connect has started, newest first, with where each ran. Use to find a " +
+      "conversationId to continue.",
+    inputSchema: {
+      type: "object",
+      properties: { limit: { type: "number", description: "How many (default 15)." } },
+    },
+  },
+  {
+    name: "agy_doctor",
+    description: "Health of the Antigravity CLI integration: which agy binary, its version, and the models it offers.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 const handlers = {
@@ -222,7 +273,7 @@ const handlers = {
         const r = await session.startThread({ cwd: cwd || process.cwd(), sandbox, model: cfg.model ?? undefined });
         session.hud.model = r.model;
       }
-      const res = await session.ask(prompt, { intent: chosen, model: turnModel, policy: (i) => effectivePolicy(i, cfg) });
+      const res = await session.ask(prompt, { intent: chosen, model: turnModel, policy: (i) => effectivePolicy(i, cfg), timeoutMs: turnTimeoutMs() });
       const steps = [...session.reasoning.values()].flatMap((m) => [...m.values()]);
       const note = res.interrupted
         ? " · INTERRUPTED: exceeded the budget for this intent, so the answer is partial"
@@ -318,6 +369,62 @@ const handlers = {
     return lines.join("\n");
   },
 };
+
+Object.assign(handlers, {
+  async agy_ask({ prompt, intent, conversationId, model, cwd }) {
+    let chosen = intent ?? classify(prompt);
+    // A guess must not land on the one intent agy refuses; an explicit ask may, and is told why.
+    if (!intent && chosen === "implement") chosen = "second_opinion";
+    const policy = agyPolicy(chosen, effectivePolicy(chosen, loadConfig()));
+    const dir = cwd || (conversationId && conversationCwd(conversationId)) || process.cwd();
+    const res = await agyAsk({ prompt, intent: chosen, policy, model, conversationId, cwd: dir, timeoutMs: turnTimeoutMs() });
+    recordTurn({ conversationId: res.conversationId, cwd: dir, prompt, intent: chosen, model });
+    const note = res.interrupted
+      ? ` · INTERRUPTED: ${res.interrupted}, so the answer is partial`
+      : res.failed
+        ? ` · TURN FAILED: ${res.error}`
+        : "";
+    return [
+      res.answer || (res.failed ? "(the turn failed before producing an answer)" : "(no answer)"),
+      "",
+      `---`,
+      `conversation: ${res.conversationId ?? "unknown"}  (pass this as conversationId to continue)`,
+      `routed: ${chosen} · agy ${model ?? "default model"} · effort ${policy.effort} · read-only` +
+        ` · ${res.tokens.toLocaleString()} tokens this turn${res.retried ? " (incl. one retry after a denied command)" : ""}${note}`,
+      res.denied.length ? `denied (read-only): ${[...new Set(res.denied)].join(", ")}` : "",
+      res.steps.length ? `steps: ${res.steps.join(" -> ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  },
+
+  async agy_threads({ limit = 15 }) {
+    const rows = listConversations(limit).map(
+      (c) => `${c.id}  ${c.at.slice(0, 16).replace("T", " ")}  ${String(c.turns).padStart(2)} turns  ${c.prompt.slice(0, 40).padEnd(42)}${c.cwd ?? ""}`
+    );
+    return rows.length ? rows.join("\n") : "no agy conversations started through Connect yet";
+  },
+
+  async agy_doctor() {
+    const bin = resolveAgyBin();
+    let ver;
+    try {
+      ver = await agyRun(["--version"], { bin });
+    } catch (e) {
+      return `agy binary      ${bin}   NOT FOUND (${e.message})\n\nInstall the Antigravity CLI, or set CONNECT_AGY_BIN.`;
+    }
+    const models = await agyRun(["models"], { bin });
+    const list = models.stdout.split("\n").filter((l) => l.includes("\t")).map((l) => `  ${l.replace("\t", " — ")}`);
+    return [
+      `agy binary      ${bin}`,
+      `version         ${ver.stdout.trim() || ver.stderr.trim() || `exit ${ver.code}`}`,
+      `conversations   ${listConversations(Infinity).length} started through Connect`,
+      "",
+      list.length ? "available models:" : `could not list models: ${(models.stderr || models.stdout).trim() || `exit ${models.code}`}`,
+      ...list,
+    ].join("\n");
+  },
+});
 
 /**
  * Check a config against what the daemon actually offers, not a hardcoded

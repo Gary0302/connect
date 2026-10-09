@@ -500,8 +500,8 @@ console.log("\n[10] MCP protocol surface");
   send({ jsonrpc: "2.0", id: 3, method: "tools/list" });
   const list = await waitFor(3);
   const names = (list?.result?.tools ?? []).map((t) => t.name).sort();
-  ok("advertises the five tools",
-     JSON.stringify(names) === JSON.stringify(["codex_ask", "codex_config", "codex_doctor", "codex_history", "codex_threads"]),
+  ok("advertises the eight tools",
+     JSON.stringify(names) === JSON.stringify(["agy_ask", "agy_doctor", "agy_threads", "codex_ask", "codex_config", "codex_doctor", "codex_history", "codex_threads"]),
      names.join(","));
   const ask = (list?.result?.tools ?? []).find((t) => t.name === "codex_ask");
   ok("codex_ask no longer hardcodes a model name", !/gpt-5/.test(JSON.stringify(ask)));
@@ -756,6 +756,70 @@ if (process.env.CONNECT_TEST_DISRUPTIVE === "1") {
   c.close();
 } else {
   console.log("\n[15] reconnect test skipped (CONNECT_TEST_DISRUPTIVE=1 to run — it restarts the daemon)");
+}
+
+// ------------------------------------------- 16. agy, against a fake binary
+// A stand-in `agy` that replays stream-json, so routing, the retry, the guards
+// and the ledger are checked without spending a token or needing agy installed.
+console.log("\n[16] agy bridge (fake agy binary)");
+{
+  const { writeFileSync, chmodSync, readFileSync } = await import("node:fs");
+  const agy = await import("../src/agy-client.mjs");
+  const dir = mkdtempSync(tjoin(tmpdir(), "connect-agy-"));
+  const bin = tjoin(dir, "agy");
+  const log = tjoin(dir, "calls.jsonl");
+  // Behaviour picked by a word in the prompt: DENY (empty + denied command on the
+  // first turn only), TURBO (unsafe permission mode), SLOW (never finishes), else answers.
+  writeFileSync(bin, `#!/usr/bin/env node
+const fs = require("node:fs");
+const a = process.argv.slice(2);
+const p = a[a.indexOf("-p") + 1];
+const conv = a.includes("--conversation") ? a[a.indexOf("--conversation") + 1] : null;
+fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(a) + "\\n");
+const out = (e) => process.stdout.write(JSON.stringify(e) + "\\n");
+const id = conv ?? "conv-1";
+out({ event: "init", conversation_id: id, init: { permission_mode: p.includes("TURBO") ? "always-proceed" : "request-review" } });
+if (p.includes("SLOW")) setTimeout(() => {}, 60000);
+else {
+  const deny = p.includes("DENY") && !conv;
+  out({ event: "step_update", step_update: { state: "DONE", step_type: "agent_response", usage: { total_tokens: 1000 } } });
+  out({ event: "result", result: { conversation_id: id, status: "SUCCESS", response: deny ? "" : "answer from " + (conv ? "retry" : "first"),
+    usage: { total_tokens: 1000 }, ...(deny ? { denied_actions: [{ action: "command" }] } : {}) } });
+}
+`);
+  chmodSync(bin, 0o755);
+  const pol = agy.agyPolicy("quick_answer", { effort: "low" });
+  const ask = (prompt, extra = {}) => agy.agyAsk({ prompt, intent: "quick_answer", policy: pol, cwd: dir, bin, timeoutMs: 2000, ...extra });
+
+  let refused = false;
+  try { agy.agyPolicy("implement"); } catch (e) { refused = /cannot run `implement`/.test(e.message); }
+  ok("implement is refused for agy", refused);
+  ok("a Codex-only effort falls back to the route's", agy.agyPolicy("code_review", { effort: "minimal" }).effort === "high");
+  const args = agy.agyArgs({ prompt: "q", effort: "low", conversationId: "c9" });
+  ok("argv: stream-json, effort, conversation, preamble",
+    args.includes("stream-json") && args[args.indexOf("--effort") + 1] === "low" && args.includes("c9") &&
+    args[1].startsWith(agy.READ_ONLY_PREAMBLE));
+
+  const plain = await ask("hello");
+  ok("plain turn answers", plain.answer === "answer from first" && !plain.retried, plain.answer);
+  const retried = await ask("DENY please");
+  ok("denied empty turn is retried in the same conversation", retried.answer === "answer from retry" && retried.retried && retried.tokens === 2000);
+  const turbo = await ask("TURBO please");
+  ok("unsafe permission mode is refused", /permission mode "always-proceed"/.test(turbo.interrupted ?? ""), turbo.interrupted);
+  const slow = await ask("SLOW please");
+  ok("time cap kills a stuck turn", /time cap/.test(slow.interrupted ?? ""), slow.interrupted);
+  const tight = await ask("hello", { policy: { ...pol, maxTokens: 500 } });
+  ok("token ceiling interrupts", /token budget/.test(tight.interrupted ?? ""), tight.interrupted);
+  ok("every turn spawned the binary", readFileSync(log, "utf8").trim().split("\n").length >= 6);
+
+  const ledger = tjoin(dir, "ledger.jsonl");
+  agy.recordTurn({ conversationId: "a", cwd: "/x", prompt: "first", intent: "quick_answer" }, ledger);
+  agy.recordTurn({ conversationId: "b", cwd: "/y", prompt: "other", intent: "quick_answer" }, ledger);
+  agy.recordTurn({ conversationId: "a", cwd: "/x", prompt: "again", intent: "quick_answer" }, ledger);
+  const convs = agy.listConversations(15, ledger);
+  ok("ledger: newest first, turns counted, first prompt kept",
+    convs[0].id === "a" && convs[0].turns === 2 && convs[0].prompt === "first" && convs.length === 2);
+  ok("ledger: continuation finds its cwd", agy.conversationCwd("b", ledger) === "/y");
 }
 
 a.close(); b.close();

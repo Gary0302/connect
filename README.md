@@ -109,6 +109,9 @@ Claude also gets the MCP tools directly:
 | `codex_history` | a recent, truncated transcript of a thread (default 20 turns, 400 chars per item) |
 | `codex_config` | read or change preferences |
 | `codex_doctor` | diagnose the daemon and versions |
+| `agy_ask` | one read-only Antigravity CLI turn: `prompt`, `intent`, optional `conversationId`, `model`, `cwd` |
+| `agy_threads` | list the agy conversations Connect started |
+| `agy_doctor` | which `agy` binary, its version, and its models |
 
 Claude is told to report Codex's answer **as Codex's view, not as fact**, and to say plainly where
 it disagrees.
@@ -147,6 +150,28 @@ shows what one contains — so `/connect:resume` can pick up a conversation from
 
 Verified: resume a thread, ask "what did I ask you earlier in this thread?", and Codex answers from
 the thread's own history.
+
+## Antigravity CLI (agy) as a second peer
+
+If Google's Antigravity CLI is installed (`agy` on `PATH` or in `~/.local/bin`; override with
+`CONNECT_AGY_BIN`), Connect can ask it too — `/connect:agy`, or Claude calls `agy_ask` when you ask
+for Antigravity, agy or Gemini. Each turn is one headless `agy -p --output-format stream-json`
+process; `--conversation <id>` continues an earlier one.
+
+- **Always read-only.** Headless agy cannot ask for approval, so file writes and shell commands are
+  denied (reported as `denied (read-only): …`); its own read tools still work. The only way to let
+  it write headlessly is `--dangerously-skip-permissions`, and measured, `--sandbox` does not keep
+  that inside the workspace — so `implement` is refused rather than handed full-disk access. If
+  your agy settings put it in any permission mode other than `request-review`, Connect refuses the
+  turn. Allow rules in your own `~/.gemini/antigravity-cli/settings.json` still apply.
+- **Its own ceilings.** agy reads several files per question: one "which function starts the
+  daemon?" cost 36k–130k tokens across runs. Ceilings are 150k / 250k / 400k / 800k for quick /
+  second opinion / review / deep. Effort follows your Connect config where agy supports the level.
+- **One recovery.** If agy calls a denied command and stops with no answer, Connect asks once more
+  in the same conversation and says so in the result.
+- **Conversations.** agy has no command that lists them, so Connect keeps a ledger of the ones it
+  started at `~/.config/connect/agy-conversations.jsonl`; `agy_threads` reads it.
+- The turn time cap (`CONNECT_TURN_TIMEOUT_MS`, default 60 min) applies to both peers.
 
 ## Configuration
 

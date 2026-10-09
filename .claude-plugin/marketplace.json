@@ -7,7 +7,7 @@
     {
       "name": "connect",
       "source": "./",
-      "description": "Talk to OpenAI Codex from inside Claude Code. Persistent threads on a shared Codex daemon, with cost-aware routing."
+      "description": "Talk to OpenAI Codex, and the Antigravity CLI, from inside Claude Code. Persistent threads on a shared Codex daemon, with cost-aware routing."
     }
   ]
 }
