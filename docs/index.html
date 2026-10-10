@@ -28,7 +28,7 @@
     <meta name="twitter:description" content="Let Claude Code get a second opinion from OpenAI Codex." />
     <meta name="twitter:image" content="https://gary0302.github.io/connect/og-image.png" />
     <script type="application/ld+json">
-      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Connect","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","description":"A Claude Code plugin that lets Claude ask OpenAI Codex for a second opinion or code review over MCP.","image":"https://gary0302.github.io/connect/og-image.png","softwareVersion":"0.4.0","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Gary0302/connect","url":"https://gary0302.github.io/connect/","author":{"@type":"Person","name":"Gary"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Connect","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","description":"A Claude Code plugin that lets Claude ask OpenAI Codex for a second opinion or code review over MCP.","image":"https://gary0302.github.io/connect/og-image.png","softwareVersion":"0.5.0","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Gary0302/connect","url":"https://gary0302.github.io/connect/","author":{"@type":"Person","name":"Gary"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
     </script>
   </head>
   <body>
@@ -37,6 +37,7 @@
       <nav>
         <a href="#example">Example</a>
         <a href="#install">Install</a>
+        <a href="#skill">Other agents</a>
         <a href="https://github.com/Gary0302/connect">GitHub ↗</a>
       </nav>
     </header>
@@ -119,10 +120,24 @@ claude plugin install connect@connect-local</code></pre>
           <tr><td><code>/connect:ask &lt;question&gt;</code></td><td>send a question to Codex yourself</td></tr>
           <tr><td><code>/connect:threads</code></td><td>list earlier Codex conversations</td></tr>
           <tr><td><code>/connect:resume &lt;id&gt; &lt;question&gt;</code></td><td>continue one of them</td></tr>
+          <tr><td><code>/connect:agy &lt;question&gt;</code></td><td>ask Google's Antigravity CLI instead, as a third view</td></tr>
           <tr><td><code>/connect:config</code></td><td>pick the Codex model and reasoning effort</td></tr>
           <tr><td><code>/connect:doctor</code></td><td>check the setup</td></tr>
         </table>
         <a class="link" href="https://github.com/Gary0302/connect#readme">Full documentation on GitHub ↗</a>
+      </section>
+
+      <section class="install-section" id="skill">
+        <p class="eyebrow">Not on Claude Code?</p>
+        <h2>Use the standalone skill.</h2>
+        <p class="sub"><code>ask-codex</code> is a plain <code>SKILL.md</code> plus one script around <code>codex exec</code>. No plugin, no daemon. It works in any agent that loads skills and can run a shell command, such as Cursor, Gemini CLI or Codex itself. It keeps intent-based routing and resumable threads.</p>
+        <div class="install">
+          <div class="install-title"><b>terminal</b><button type="button" data-copy="skill-code">Copy</button></div>
+          <pre id="skill-code"><code>git clone --depth 1 https://github.com/Gary0302/connect /tmp/connect
+cp -r /tmp/connect/portable/ask-codex ~/.claude/skills/</code></pre>
+        </div>
+        <p class="note">Swap <code>~/.claude/skills/</code> for your agent's skills folder. You need Node.js 18+ and the <code>codex</code> CLI signed in. Unlike the plugin, it can't stop a turn mid-way once it exceeds its token ceiling; it can only flag it afterwards.</p>
+        <a class="link" href="https://github.com/Gary0302/connect/tree/main/portable/ask-codex">Skill source on GitHub ↗</a>
       </section>
     </main>
 
