@@ -57,7 +57,9 @@ design calls, subtle concurrency, security-sensitive review, or when the user as
 
 `agy_ask` asks Google's Antigravity CLI (Gemini by default) instead of Codex. Use it when the user
 asks for Antigravity, agy or Gemini, or when a third independent view is worth the cost. It takes
-the same intents except `implement` — agy is always read-only. Its result ends with a
+the same intents. Everything but `implement` is read-only; `implement` lets agy edit files inside
+the working directory, but it still cannot run commands, so read its edits before calling the work
+done, and pick it only when the user wants agy to change files. Its result ends with a
 `conversation:` id; pass it back as `conversationId` to continue, and `agy_threads` lists earlier
 ones. Report its answer as agy's view, just as with Codex. `agy_doctor` shows its version and
 models; pass a model id as `model` only when the user asks for one.

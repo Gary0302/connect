@@ -17,8 +17,9 @@ import { ROUTES, classify } from "../src/router.mjs";
 import { loadConfig, saveConfig, applyPatch, effectivePolicy, configPath, MODEL_CHANGE } from "../src/config.mjs";
 import { agyAsk, agyPolicy, agyRun, resolveAgyBin, recordTurn, listConversations, conversationCwd, AGY_CEILINGS } from "../src/agy-client.mjs";
 import { createInterface } from "node:readline";
+import { realpathSync } from "node:fs";
 
-const SERVER = { name: "connect", version: "0.5.0" };
+const SERVER = { name: "connect", version: "0.6.0" };
 
 /**
  * Returned from `initialize` and injected into the client's context for the
@@ -57,9 +58,10 @@ fix restarts the daemon and drops every attached Codex session, including any TU
 Never run that for them.
 
 agy_ask reaches a second, different peer: Google's Antigravity CLI (Gemini by default), run as
-one headless \`agy\` process per turn. It takes the same intents except \`implement\` — headless
-agy cannot write without full-disk permissions, so it is read-only, always. Its result ends with a
-conversation id; pass it back as \`conversationId\` to continue. Use it when the user asks for
+one headless \`agy\` process per turn. It takes the same intents. Like Codex it is read-only under
+every intent except \`implement\`, which lets it edit files inside the working directory but still
+not run commands, so it cannot build or test what it wrote — check its edits yourself. Its result
+ends with a conversation id; pass it back as \`conversationId\` to continue. Use it when the user asks for
 Antigravity, agy or Gemini, or when a third independent view is worth the cost; the same rules
 apply: report its view as its view, and say so when a result is INTERRUPTED or FAILED.`;
 const leases = new LeaseRegistry();
@@ -196,8 +198,9 @@ const TOOLS = [
     name: "agy_ask",
     description:
       "Ask Google's Antigravity CLI (agy; Gemini by default) a question, as a second peer model beside " +
-      "Codex. Each call is one headless agy turn that can read the working directory; it is always " +
-      "read-only, so the `implement` intent is refused. Pass conversationId to continue an earlier agy " +
+      "Codex. Each call is one headless agy turn that can read the working directory. Every intent but " +
+      "`implement` is read-only; `implement` lets agy create and edit files inside the working directory " +
+      "(never outside it, never shell commands). Pass conversationId to continue an earlier agy " +
       "conversation with its memory intact.",
     inputSchema: {
       type: "object",
@@ -207,8 +210,9 @@ const TOOLS = [
           type: "string",
           enum: Object.keys(AGY_CEILINGS),
           description:
-            "Routing profile; picks reasoning effort and the token ceiling. ALWAYS set this; omitting it " +
-            "guesses from the prompt.",
+            "Routing profile; picks reasoning effort, the token ceiling and whether agy may write. ALWAYS " +
+            "set this; omitting it guesses from the prompt, and a guess is never `implement`. Use " +
+            "`implement` only when agy is meant to edit files.",
         },
         conversationId: { type: "string", description: "Continue this existing agy conversation." },
         model: { type: "string", description: "agy model id (see agy_doctor). Omit for agy's own default." },
@@ -373,10 +377,11 @@ const handlers = {
 Object.assign(handlers, {
   async agy_ask({ prompt, intent, conversationId, model, cwd }) {
     let chosen = intent ?? classify(prompt);
-    // A guess must not land on the one intent agy refuses; an explicit ask may, and is told why.
+    // Writing must be asked for: a guess never lands on implement.
     if (!intent && chosen === "implement") chosen = "second_opinion";
     const policy = agyPolicy(chosen, effectivePolicy(chosen, loadConfig()));
-    const dir = cwd || (conversationId && conversationCwd(conversationId)) || process.cwd();
+    // agy denies every write from a path with a symlink in it (agy-client note 2a).
+    const dir = realpathSync(cwd || (conversationId && conversationCwd(conversationId)) || process.cwd());
     const res = await agyAsk({ prompt, intent: chosen, policy, model, conversationId, cwd: dir, timeoutMs: turnTimeoutMs() });
     recordTurn({ conversationId: res.conversationId, cwd: dir, prompt, intent: chosen, model });
     const note = res.interrupted
@@ -389,9 +394,11 @@ Object.assign(handlers, {
       "",
       `---`,
       `conversation: ${res.conversationId ?? "unknown"}  (pass this as conversationId to continue)`,
-      `routed: ${chosen} · agy ${model ?? "default model"} · effort ${policy.effort} · read-only` +
+      `routed: ${chosen} · agy ${model ?? "default model"} · effort ${res.effortNote ?? policy.effort} · ${policy.sandbox}` +
         ` · ${res.tokens.toLocaleString()} tokens this turn${res.retried ? " (incl. one retry after a denied command)" : ""}${note}`,
-      res.denied.length ? `denied (read-only): ${[...new Set(res.denied)].join(", ")}` : "",
+      res.edited.length ? `edited: ${res.edited.join(", ")}` : "",
+      res.gitReverted.length ? `REVERTED agy's changes to ${res.gitReverted.join(", ")} (git would have run or obeyed them)` : "",
+      res.denied.length ? `denied (${policy.write ? "outside the workspace, or a command" : "read-only"}): ${[...new Set(res.denied)].join(", ")}` : "",
       res.steps.length ? `steps: ${res.steps.join(" -> ")}` : "",
     ]
       .filter(Boolean)

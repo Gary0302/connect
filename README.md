@@ -109,7 +109,7 @@ Claude also gets the MCP tools directly:
 | `codex_history` | a recent, truncated transcript of a thread (default 20 turns, 400 chars per item) |
 | `codex_config` | read or change preferences |
 | `codex_doctor` | diagnose the daemon and versions |
-| `agy_ask` | one read-only Antigravity CLI turn: `prompt`, `intent`, optional `conversationId`, `model`, `cwd` |
+| `agy_ask` | one Antigravity CLI turn, read-only unless `implement`: `prompt`, `intent`, optional `conversationId`, `model`, `cwd` |
 | `agy_threads` | list the agy conversations Connect started |
 | `agy_doctor` | which `agy` binary, its version, and its models |
 
@@ -158,15 +158,28 @@ If Google's Antigravity CLI is installed (`agy` on `PATH` or in `~/.local/bin`; 
 for Antigravity, agy or Gemini. Each turn is one headless `agy -p --output-format stream-json`
 process; `--conversation <id>` continues an earlier one.
 
-- **Always read-only.** Headless agy cannot ask for approval, so file writes and shell commands are
-  denied (reported as `denied (read-only): …`); its own read tools still work. The only way to let
-  it write headlessly is `--dangerously-skip-permissions`, and measured, `--sandbox` does not keep
-  that inside the workspace — so `implement` is refused rather than handed full-disk access. If
-  your agy settings put it in any permission mode other than `request-review`, Connect refuses the
-  turn. Allow rules in your own `~/.gemini/antigravity-cli/settings.json` still apply.
+- **Read-only except `implement`.** Headless agy cannot ask for approval, so file writes and shell
+  commands are denied (reported as `denied (read-only): …`); its own read tools still work inside
+  the working directory. If your agy settings put it in any permission mode other than
+  `request-review`, Connect refuses the turn. Allow rules in your own
+  `~/.gemini/antigravity-cli/settings.json` still apply.
+- **`implement` writes inside the workspace only.** Connect adds `--mode accept-edits` (agy 1.3+)
+  for that turn alone. Measured on agy 1.3.2: edits inside the working directory succeed; writes
+  outside it are denied whether by absolute path, `../`, or a symlink in the workspace; shell
+  commands stay denied, so agy cannot build or test what it wrote. A continued conversation is
+  read-only again unless that turn is `implement` too. Where agy's own check falls short:
+  - `.git/` is writable, and a hook or `core.hooksPath` would later run as you. Connect snapshots
+    `.git` hooks, config and `info/` before the turn and puts them back after it, reporting
+    `REVERTED …` if agy changed any.
+  - A hard link inside the workspace writes through to its target outside (Codex's sandbox has the
+    same gap). Connect does not guard this.
+  - agy denies every write when started from a path containing a symlink (`/tmp` on macOS), so
+    Connect resolves the working directory first.
+  `--dangerously-skip-permissions` is never used: `--sandbox` does not keep it in the workspace.
 - **Its own ceilings.** agy reads several files per question: one "which function starts the
-  daemon?" cost 36k–130k tokens across runs. Ceilings are 150k / 250k / 400k / 800k for quick /
-  second opinion / review / deep. Effort follows your Connect config where agy supports the level.
+  daemon?" cost 36k–130k tokens across runs. Ceilings are 150k / 250k / 400k / 800k / 600k for
+  quick / second opinion / review / deep / implement. Effort follows your Connect config where agy
+  supports the level.
 - **One recovery.** If agy calls a denied command and stops with no answer, Connect asks once more
   in the same conversation and says so in the result.
 - **Conversations.** agy has no command that lists them, so Connect keeps a ledger of the ones it
