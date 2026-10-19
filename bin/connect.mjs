@@ -3,6 +3,7 @@
  * connect — drive Codex through the shared daemon from the terminal.
  *
  *   connect doctor                     health of the daemon, versions, remote control
+ *   connect usage [--json]              account quotas across Claude, Codex and agy
  *   connect threads [n]                recent threads on the shared daemon
  *   connect history <threadId>         replay a thread's turns
  *   connect ask [opts] "prompt"        one routed turn
@@ -15,6 +16,7 @@ import { LeaseRegistry } from "../src/lease.mjs";
 import { ConnectSession } from "../src/session.mjs";
 import { ROUTES } from "../src/router.mjs";
 import { loadConfig, effectivePolicy } from "../src/config.mjs";
+import { collectUsage, formatUsage } from "../src/usage.mjs";
 
 const [cmd, ...rest] = process.argv.slice(2);
 
@@ -40,6 +42,12 @@ async function open(name = "connect-cli") {
 }
 
 const commands = {
+  async usage() {
+    if (rest.some((arg) => arg !== "--json")) throw new Error("usage: connect usage [--json]");
+    const report = await collectUsage();
+    console.log(rest.includes("--json") ? JSON.stringify(report, null, 2) : formatUsage(report));
+  },
+
   async doctor() {
     const { c, st } = await open("connect-doctor");
     const rc = await c.request("remoteControl/status/read");
@@ -140,6 +148,7 @@ if (!run) {
   console.log(`connect — drive Codex through the shared daemon
 
   connect doctor
+  connect usage [--json]
   connect threads [n]
   connect history <threadId> [--limit n]
   connect ask [--thread <id>] [--intent <name>] [--model <id>] "prompt"

@@ -7,7 +7,7 @@ shared Codex daemon.
 **Source:** [github.com/Gary0302/connect](https://github.com/Gary0302/connect) ·
 **License:** MIT
 
-Connect is a **Claude Code plugin**: an MCP server, a skill, and five slash commands. It lets
+Connect is a **Claude Code plugin**: an MCP server, a skill, and slash commands. It lets
 Claude ask Codex for a second opinion, a code review, or a hard design call — and keep that
 conversation going across sessions. There is nothing to `npm install`: zero dependencies, plain
 Node.js.
@@ -92,6 +92,52 @@ claude plugin uninstall connect@connect-local && claude plugin install connect@c
 | `/connect:resume <threadId> <question>` | read an earlier thread back, then continue it |
 | `/connect:config [args]` | choose model, effort and token ceilings (interactive with no args) |
 | `/connect:doctor` | health check: daemon, versions, remote control |
+| `/connect:usage [--json]` | current Claude, Codex and Antigravity quotas; script only, no model call |
+
+### Check usage without a model
+
+`/connect:usage` shows four compact rows. Percentages are **remaining**; the bracketed values
+are countdowns to reset in hours and minutes, in `5h|7d` order. Missing windows are omitted:
+
+```text
+claude 5h:22% 7d:80% [1:33|100:00]
+codex 5h:67% 7d:95% [2:00|150:00]
+agy-gemini 7d:99.6% [165:20]
+agy-other 7d:100% [168:00]
+```
+
+The 5h value is green above 50%, yellow above 20% through 50%, and red at 20% or less. Terminal output
+detects color support; the command hook enables colors explicitly. `NO_COLOR` disables colors.
+Antigravity uses its reported shared quota when available, otherwise the least remaining model
+quota in each group. Its Starter tier has weekly limits, as described in Google's
+[quota documentation](https://antigravity.google/docs/plans#baseline-quota); an unreported 5h
+limit is omitted. Unknown reset times display `—`. A failed provider displays `unavailable`.
+
+These are account quotas across the providers' apps, including activity outside Connect.
+`--json` retains the full quota details, credit balances, and errors. Percentages from different
+models or providers are never added. The report does not include historical token totals or bills.
+
+The plugin's command hooks intercept the command and display the script output as a hook message
+before Claude processes a prompt. Claude Code may label this a **blocked prompt**: that is how
+Connect prevents inference, not a failure of the usage check. This uses Claude Code's documented
+[`UserPromptSubmit` and `UserPromptExpansion` decision controls](https://code.claude.com/docs/en/hooks#userpromptsubmit-decision-control).
+Keep plugin hooks enabled and restart Claude Code after updating the plugin. A normal custom
+command alone cannot guarantee a check without inference. For a direct script invocation, use
+Claude Code's Bash mode (`!`) or your terminal:
+
+```bash
+node /path/to/connect/bin/connect.mjs usage
+node /path/to/connect/bin/connect.mjs usage --json
+```
+
+The script reads Codex's `account/rateLimits/read` and the other providers' quota endpoints
+using your existing sign-ins. It starts the Codex daemon if needed, but never starts a thread or
+turn. Claude credentials come from macOS Keychain or `CLAUDE_CONFIG_DIR/.credentials.json`
+(`~/.claude` by default); Antigravity uses Keychain on macOS or Secret Service's `secret-tool`
+on Linux. For Antigravity file-backed sign-ins, set `CONNECT_AGY_CREDENTIALS` to the CLI's token
+profile (an object with `token.access_token`). It never prints or rewrites credentials. An expired
+sign-in is reported with instructions to refresh it in the provider CLI. Antigravity enterprise
+and API-key accounts are currently unsupported; subscription quotas are not API billing totals.
 
 ### Letting Claude decide
 
@@ -219,6 +265,7 @@ to the next ask). Sandboxes are deliberately **not** configurable.
 |---|---|---|
 | `CONNECT_CONFIG` | `~/.config/connect/config.json` | preferences file |
 | `CONNECT_CODEX_BIN` | resolved automatically | which `codex` binary to use |
+| `CONNECT_AGY_CREDENTIALS` | OS keyring | Antigravity token profile file for usage checks |
 | `CONNECT_TEST_DISRUPTIVE` | unset | `1` enables the daemon-restart test |
 
 ## Standalone CLI
@@ -227,6 +274,8 @@ Codex without Claude in the loop. It reads the same config file; `--model` overr
 
 ```bash
 node bin/connect.mjs doctor
+node bin/connect.mjs usage
+node bin/connect.mjs usage --json
 node bin/connect.mjs threads 10
 node bin/connect.mjs ask --intent quick_answer "what version of node is this"
 node bin/connect.mjs ask --thread <id> "and what about the previous point?"
@@ -265,6 +314,14 @@ read it before changing `src/`. Two examples:
 - Reasoning notifications only arrive when `summary` is set on `turn/start`.
 
 ## Testing
+
+Usage checks have an offline suite that needs no sign-in and spends no model tokens:
+
+```bash
+node --test test/usage.mjs
+```
+
+For the existing Codex integration suite:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"   # make sure the standalone codex comes first
@@ -317,6 +374,8 @@ continues on the same thread.
 mcp/                the MCP server
 skills/connect/     when Claude should reach for Codex
 commands/           slash commands
+hooks/hooks.json    intercept /connect:usage before model processing
+scripts/usage-hook.mjs  display usage directly from a command hook
 bin/connect.mjs     standalone CLI
 src/
   ws-unix.mjs       minimal RFC 6455 client over a Unix socket
@@ -325,6 +384,8 @@ src/
   config.mjs        user preferences layered over it
   lease.mjs         fencing-token thread leases
   session.mjs       ties them together, plus HUD state
+  usage.mjs         account quota reads and formatting (no inference)
+test/usage.mjs      offline usage and interception checks
 test/verify.mjs     end-to-end suite
 spike/              protocol experiments and FINDINGS.md
 docs/               the product website (GitHub Pages)
