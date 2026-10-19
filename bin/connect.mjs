@@ -3,7 +3,8 @@
  * connect — drive Codex through the shared daemon from the terminal.
  *
  *   connect doctor                     health of the daemon, versions, remote control
- *   connect usage [--json]              account quotas across Claude, Codex and agy
+ *   connect usage [--json|--line]      account quotas across Claude, Codex and agy
+ *   connect usage on|off|refresh       the quota line a status line script prints
  *   connect threads [n]                recent threads on the shared daemon
  *   connect history <threadId>         replay a thread's turns
  *   connect ask [opts] "prompt"        one routed turn
@@ -16,7 +17,9 @@ import { LeaseRegistry } from "../src/lease.mjs";
 import { ConnectSession } from "../src/session.mjs";
 import { ROUTES } from "../src/router.mjs";
 import { loadConfig, effectivePolicy } from "../src/config.mjs";
-import { collectUsage, formatUsage } from "../src/usage.mjs";
+import {
+  collectUsage, formatUsage, formatUsageLine, refreshStatusLine, setStatusLine, statusLinePath,
+} from "../src/usage.mjs";
 
 const [cmd, ...rest] = process.argv.slice(2);
 
@@ -43,9 +46,18 @@ async function open(name = "connect-cli") {
 
 const commands = {
   async usage() {
-    if (rest.some((arg) => arg !== "--json")) throw new Error("usage: connect usage [--json]");
+    const [arg] = rest;
+    if (rest.length > 1 || (arg && !["--json", "--line", "on", "off", "refresh"].includes(arg)))
+      throw new Error("usage: connect usage [--json|--line|on|off|refresh]");
+    if (arg === "on" || arg === "off") {
+      await setStatusLine(arg === "on");
+      return console.log(`status line ${arg}: ${statusLinePath()}`);
+    }
+    // Quiet: the HUD module runs this on a timer and reads nothing back.
+    if (arg === "refresh") return void (await refreshStatusLine());
     const report = await collectUsage();
-    console.log(rest.includes("--json") ? JSON.stringify(report, null, 2) : formatUsage(report));
+    console.log(rest[0] === "--json" ? JSON.stringify(report, null, 2)
+      : rest[0] === "--line" ? formatUsageLine(report) : formatUsage(report));
   },
 
   async doctor() {
@@ -148,7 +160,7 @@ if (!run) {
   console.log(`connect — drive Codex through the shared daemon
 
   connect doctor
-  connect usage [--json]
+  connect usage [--json|--line|on|off|refresh]
   connect threads [n]
   connect history <threadId> [--limit n]
   connect ask [--thread <id>] [--intent <name>] [--model <id>] "prompt"

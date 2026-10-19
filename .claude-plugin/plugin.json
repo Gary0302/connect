@@ -1,6 +1,6 @@
 {
   "name": "connect",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Talk to OpenAI Codex, and the Antigravity CLI, from inside Claude Code. Persistent threads on a shared Codex daemon, with cost-aware routing.",
   "author": {
     "name": "Gary"
@@ -19,6 +19,7 @@
     "./commands/doctor.md",
     "./commands/config.md",
     "./commands/agy.md",
-    "./commands/usage.md"
+    "./commands/usage.md",
+    "./commands/compare.md"
   ]
 }

@@ -1,4 +1,7 @@
 {
+  "modules": [
+    "./hud.mjs"
+  ],
   "hooks": {
     "UserPromptSubmit": [
       {

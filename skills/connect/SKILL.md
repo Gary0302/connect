@@ -64,6 +64,13 @@ done, and pick it only when the user wants agy to change files. Its result ends 
 ones. Report its answer as agy's view, just as with Codex. `agy_doctor` shows its version and
 models; pass a model id as `model` only when the user asks for one.
 
+## Both peers at once
+
+`peers_compare` sends one question to Codex and agy together, read-only, and returns both answers
+with each one's thread or conversation id. It costs both peers' tokens: use it when the user asks
+to compare them, or when two independent views on a contested call are worth that. Lead your
+report with where they disagree, and say which side you find more convincing and why.
+
 ## If something is broken
 
 Run `codex_doctor`. It reports daemon status, a CLI/app-server version mismatch, and remote

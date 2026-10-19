@@ -63,7 +63,11 @@ every intent except \`implement\`, which lets it edit files inside the working d
 not run commands, so it cannot build or test what it wrote — check its edits yourself. Its result
 ends with a conversation id; pass it back as \`conversationId\` to continue. Use it when the user asks for
 Antigravity, agy or Gemini, or when a third independent view is worth the cost; the same rules
-apply: report its view as its view, and say so when a result is INTERRUPTED or FAILED.`;
+apply: report its view as its view, and say so when a result is INTERRUPTED or FAILED.
+
+peers_compare asks Codex and agy the same question at once, read-only, and returns both answers.
+It costs both peers' tokens: use it when the user asks to compare them, or when two independent
+views on a contested call are worth that. Say where the two disagree, not just what each said.`;
 const leases = new LeaseRegistry();
 
 let codex = null;
@@ -96,6 +100,9 @@ const codexBin = resolveCodexBin;
 
 /** Shared turn time cap for both peers; the 5 min session default killed max-effort research. */
 const turnTimeoutMs = () => Number(process.env.CONNECT_TURN_TIMEOUT_MS) || 3_600_000;
+
+/** What peers_compare accepts: every intent both peers know that runs read-only. */
+const COMPARE_INTENTS = Object.keys(ROUTES).filter((i) => ROUTES[i].sandbox === "read-only" && i in AGY_CEILINGS);
 
 const TOOLS = [
   {
@@ -235,6 +242,27 @@ const TOOLS = [
     name: "agy_doctor",
     description: "Health of the Antigravity CLI integration: which agy binary, its version, and the models it offers.",
     inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "peers_compare",
+    description:
+      "Ask Codex and agy the same question at once and return both answers, each with its own thread " +
+      "or conversation id, so where they disagree is easy to see. Read-only under every intent: it " +
+      "never takes `implement`. Costs both peers' tokens, so use it when two independent views are " +
+      "worth that, not as a default.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "The question both peers get, word for word." },
+        intent: {
+          type: "string",
+          enum: COMPARE_INTENTS,
+          description: "Routing profile for both peers. Required: a guess here is paid for twice.",
+        },
+        cwd: { type: "string", description: "Working directory for both. Defaults to the current one." },
+      },
+      required: ["prompt", "intent"],
+    },
   },
 ];
 
@@ -430,6 +458,20 @@ Object.assign(handlers, {
       list.length ? "available models:" : `could not list models: ${(models.stderr || models.stdout).trim() || `exit ${models.code}`}`,
       ...list,
     ].join("\n");
+  },
+
+  async peers_compare({ prompt, intent, cwd }) {
+    if (!COMPARE_INTENTS.includes(intent))
+      throw new Error(`peers_compare takes a read-only intent (${COMPARE_INTENTS.join(", ")}); ` +
+        "to have a peer edit files, use codex_ask or agy_ask with intent implement");
+    // One peer failing must not cost the other's answer, which is already paid for.
+    const [codex, agy] = await Promise.allSettled([
+      handlers.codex_ask({ prompt, intent, cwd }),
+      handlers.agy_ask({ prompt, intent, cwd }),
+    ]);
+    const section = (title, r) =>
+      `## ${title}\n\n${r.status === "fulfilled" ? r.value : `connect error: ${r.reason?.message ?? r.reason}`}`;
+    return [section("Codex", codex), section("agy", agy)].join("\n\n");
   },
 });
 

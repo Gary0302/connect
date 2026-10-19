@@ -1,10 +1,11 @@
 /** Account quotas only: no prompts, threads, turns, or model inference. */
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, rename, rm, stat, mkdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { CodexClient, resolveCodexBin } from "./codex-client.mjs";
+import { configPath } from "./config.mjs";
 
 const exec = promisify(execFile);
 const TIMEOUT = 6_000;
@@ -250,34 +251,127 @@ function tightest(windows) {
     (Date.parse(b.resetsAt) || 0) - (Date.parse(a.resetsAt) || 0))[0];
 }
 
+/** A row's tightest 5h and 7d windows, or null when its provider did not answer. */
+function slotsOf(provider, filter = () => true) {
+  if (!provider || provider.status !== "ok") return null;
+  const windows = provider.windows.filter(filter);
+  return [300, 10080].map((minutes) => tightest(windows.filter((w) => w.windowMinutes === minutes)));
+}
+
+const percentText = (left) => `${Number(left.toFixed(1))}%`;
+// Only the 5h value is colored: green above 50%, yellow above 20%, red at 20% or less.
+const paint5h = (text, left, color) =>
+  color && left != null ? `\x1b[${left <= 20 ? 31 : left <= 50 ? 33 : 32}m${text}\x1b[39m` : text;
+const codexPool = (w) => w.limitId === "codex" || !w.limitId;
+const find = (report, name) => report.providers.find((p) => p.name === name);
+
 export function formatUsage(report, {
   color = !Object.hasOwn(process.env, "NO_COLOR") && process.env.FORCE_COLOR !== "0" &&
     (Boolean(process.stdout.isTTY) || Boolean(process.env.FORCE_COLOR)),
   now = Date.now(),
 } = {}) {
-  const row = (name, provider, filter = () => true) => {
-    if (!provider || provider.status !== "ok") return `${name} unavailable`;
-    const windows = provider.windows.filter(filter);
-    const slots = [300, 10080].map((minutes) => tightest(windows.filter((w) => w.windowMinutes === minutes)));
+  const agy = find(report, "Antigravity");
+  return [
+    ["claude", slotsOf(find(report, "Claude"))],
+    ["codex", slotsOf(find(report, "Codex"), codexPool)],
+    ["agy-gemini", slotsOf(agy, (w) => w.family === "gemini")],
+    ["agy-other", slotsOf(agy, (w) => w.family === "other")],
+  ].map(([name, slots]) => {
     const parts = [], times = [];
-    for (const [i, window] of slots.entries()) {
+    for (const [i, window] of (slots ?? []).entries()) {
       if (!window) continue;
       const left = window.remainingPercent;
-      let text = `${i === 0 ? "5h" : "7d"}:${left == null ? "—" : `${Number(left.toFixed(1))}%`}`;
-      if (color && i === 0 && left != null) {
-        const code = left <= 20 ? 31 : left <= 50 ? 33 : 32;
-        text = `\x1b[${code}m${text}\x1b[39m`;
-      }
-      parts.push(text);
+      parts.push(paint5h(`${i === 0 ? "5h" : "7d"}:${left == null ? "—" : percentText(left)}`, i === 0 ? left : null, color));
       times.push(countdown(window.resetsAt, now));
     }
     return parts.length ? `${name} ${parts.join(" ")} [${times.join("|")}]` : `${name} unavailable`;
-  };
-  const find = (name) => report.providers.find((p) => p.name === name);
+  }).join("\n");
+}
+
+/** Of one slot's windows across rows, the least remaining; never a sum. */
+function lowest(windows) {
+  const known = windows.filter((w) => w?.remainingPercent != null);
+  return known.sort((a, b) => a.remainingPercent - b.remainingPercent)[0] ?? windows.find(Boolean);
+}
+
+/**
+ * One line for a status bar, `claude [5h|7d] codex [5h|7d] agy [5h|7d]`, colors
+ * only when asked for. agy is one row: the least remaining across its model
+ * families. A provider that is missing, failed, or knows neither value has no row.
+ */
+export function formatUsageLine(report, { color = false } = {}) {
+  const agy = find(report, "Antigravity");
+  const families = ["gemini", "other"].map((family) => slotsOf(agy, (w) => w.family === family));
   return [
-    row("claude", find("Claude")),
-    row("codex", find("Codex"), (w) => w.limitId === "codex" || !w.limitId),
-    row("agy-gemini", find("Antigravity"), (w) => w.family === "gemini"),
-    row("agy-other", find("Antigravity"), (w) => w.family === "other"),
-  ].join("\n");
+    ["claude", slotsOf(find(report, "Claude"))],
+    ["codex", slotsOf(find(report, "Codex"), codexPool)],
+    ["agy", families[0] && [0, 1].map((i) => lowest(families.map((slots) => slots[i])))],
+  ]
+    .filter(([, slots]) => slots?.some((w) => w?.remainingPercent != null))
+    .map(([name, [five, week]]) => {
+      const text = (w) => (w?.remainingPercent == null ? "n/a" : percentText(w.remainingPercent));
+      return `${name} [${paint5h(text(five), five?.remainingPercent, color)}|${text(week)}]`;
+    })
+    .join(" ");
+}
+
+/**
+ * The status line's cache, beside the preferences file rather than in it:
+ * saveConfig rewrites that file whole and would drop the switch. The file
+ * existing is the switch; its text is what a status line script prints.
+ */
+export function statusLinePath() {
+  return join(dirname(configPath()), "usage-line.txt");
+}
+
+export async function statusLineEnabled(path = statusLinePath()) {
+  try { await stat(path); return true; } catch { return false; }
+}
+
+async function writeLine(path, line) {
+  const tmp = `${path}.${process.pid}.tmp`;
+  // No provider answered: an empty file, which a status line's `[ -s ]` skips.
+  await writeFile(tmp, line ? line + "\n" : "");
+  // Turned off while the quotas were being read: stay off.
+  if (!(await statusLineEnabled(path))) return rm(tmp, { force: true });
+  await rename(tmp, path);
+}
+
+/** On: switch on at once, then fill the line. Off: remove it. Resolves the report read, if any. */
+export async function setStatusLine(on, { path = statusLinePath(), collect = collectUsage } = {}) {
+  if (!on) { await rm(path, { force: true }); return null; }
+  await mkdir(dirname(path), { recursive: true });
+  if (!(await statusLineEnabled(path))) await writeFile(path, "");
+  const report = await collect();
+  await writeLine(path, formatUsageLine(report, { color: true }));
+  return report;
+}
+
+/**
+ * Refresh the line if it is on and older than `minAgeMs`, so several sessions
+ * sharing one file do not each sign in to every provider. True if it wrote.
+ */
+export async function refreshStatusLine({ path = statusLinePath(), collect = collectUsage,
+  minAgeMs = 60_000, now = Date.now() } = {}) {
+  let info;
+  try { info = await stat(path); } catch { return false; }
+  if (info.size > 0 && now - info.mtimeMs < minAgeMs) return false;
+  await writeLine(path, formatUsageLine(await collect(), { color: true }));
+  return true;
+}
+
+/** Whether Claude Code's status line command, or a script it names, reads the cache file. */
+export async function statusLineConfigured({ path = statusLinePath(),
+  settingsPath = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "settings.json") } = {}) {
+  const name = path.split("/").pop();
+  let command;
+  try { command = JSON.parse(await readFile(settingsPath, "utf8")).statusLine?.command; } catch { return false; }
+  if (typeof command !== "string") return false;
+  if (command.includes(name)) return true;
+  for (const token of command.split(/\s+/)) {
+    const file = token.replace(/^["']|["']$/g, "").replace(/^~(?=\/)/, homedir());
+    if (!file.includes("/")) continue;
+    try { if ((await readFile(file, "utf8")).includes(name)) return true; } catch {}
+  }
+  return false;
 }

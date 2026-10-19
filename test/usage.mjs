@@ -1,11 +1,13 @@
 /** Offline verification: node --test test/usage.mjs (no credentials or inference). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, mkdtemp, utimes, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
-  agyQuotas, claudeQuotas, codexQuotas, collectUsage, formatUsage,
-  readAgyUsage, readClaudeUsage, readCodexUsage,
+  agyQuotas, claudeQuotas, codexQuotas, collectUsage, formatUsage, formatUsageLine,
+  readAgyUsage, readClaudeUsage, readCodexUsage, refreshStatusLine, setStatusLine, statusLineEnabled,
 } from "../src/usage.mjs";
 import { handleUsagePrompt } from "../scripts/usage-hook.mjs";
 
@@ -131,8 +133,8 @@ test("usage hook blocks model processing and displays its result, also when coll
   let reads = 0;
   const collect = async () => { reads++; return { checkedAt: reset, providers: [] }; };
   for (const input of [
-    { hook_event_name: "UserPromptSubmit", prompt: "/connect:usage" },
-    { hook_event_name: "UserPromptExpansion", command_name: "connect:usage", command_args: "" },
+    { hook_event_name: "UserPromptSubmit", prompt: "/connect:usage show" },
+    { hook_event_name: "UserPromptExpansion", command_name: "connect:usage", command_args: "show" },
   ]) {
     const output = await handleUsagePrompt(input, collect);
     assert.equal(output.decision, "block");
@@ -143,7 +145,7 @@ test("usage hook blocks model processing and displays its result, also when coll
   assert.equal(reads, 2);
   const data = await handleUsagePrompt({ prompt: "/connect:usage --json" }, collect);
   assert.equal(JSON.parse(data.reason).checkedAt, reset);
-  const failed = await handleUsagePrompt({ prompt: "/connect:usage" }, async () => { throw new Error("secret"); });
+  const failed = await handleUsagePrompt({ prompt: "/connect:usage show" }, async () => { throw new Error("secret"); });
   assert.equal(failed.decision, "block");
   assert.ok(!failed.reason.includes("secret"));
 });
@@ -198,6 +200,31 @@ test("missing 5h quotas are omitted, weekly resets stay weekly even when imminen
   ].join("\n"));
 });
 
+test("the status-bar line is [5h|7d] per provider; a failed or missing provider has no row", () => {
+  const report = { providers: [
+    { name: "Claude", status: "ok", ...claudeQuotas({ five_hour: { utilization: 78, resets_at: reset },
+      seven_day: { utilization: 20, resets_at: reset } }) },
+    { name: "Codex", status: "unavailable", error: "Codex daemon unreachable", windows: [], notes: [] },
+    { name: "Antigravity", status: "ok", ...agyQuotas({ models: {
+      gemini: { displayName: "Gemini", quotaInfo: { remainingFraction: 0.996, resetTime: reset } },
+    } }, {}, { defaultWindowMinutes: 10080 }) },
+  ] };
+  assert.equal(formatUsageLine(report), "claude [22%|80%] agy [n/a|99.6%]");
+  assert.equal(formatUsageLine({ providers: [] }), "");
+});
+
+test("the status-bar agy row is the least remaining per window across its families, never a sum", () => {
+  const agy = agyQuotas({ models: {
+    flash: { displayName: "Gemini 3 Flash", quotaInfo: { remainingFraction: 0.5, resetTime: reset } },
+  } }, { groups: [{ displayName: "Claude and GPT models", buckets: [
+    { window: "weekly", remainingFraction: 1, resetTime: reset },
+    { window: "five_hour", remainingFraction: 0.9, resetTime: reset },
+  ] }] }, { defaultWindowMinutes: 10080 });
+  const report = { providers: [{ name: "Antigravity", status: "ok", ...agy }] };
+  // The other family's shared summary (100% weekly) must not hide Gemini's 50%.
+  assert.equal(formatUsageLine(report), "agy [90%|50%]");
+});
+
 test("5h values use green, yellow and red; weekly values stay plain and JSON has no colors", () => {
   const report = { providers: ["Claude", "Codex", "Antigravity"].map((name) => ({ name, status: "ok", windows: [
     { windowMinutes: 300, remainingPercent: name === "Claude" ? 51 : name === "Codex" ? 22 : 20, family: "gemini" },
@@ -211,6 +238,84 @@ test("5h values use green, yellow and red; weekly values stay plain and JSON has
   assert.ok(!JSON.stringify(report).includes("\\u001b"));
 });
 
+const scratch = async () => {
+  const dir = await mkdtemp(join(tmpdir(), "connect-usage-"));
+  return { dir, path: join(dir, "usage-line.txt"), settingsPath: join(dir, "settings.json") };
+};
+const empty = async () => ({ checkedAt: reset, providers: [] });
+const withClaude = async () => ({ checkedAt: reset, providers: [{ name: "Claude", status: "ok",
+  ...claudeQuotas({ five_hour: { utilization: 78, resets_at: reset }, seven_day: { utilization: 20, resets_at: reset } }) }] });
+
+test("bare /connect:usage toggles the status line; on fills it, off removes it", async () => {
+  const { path, settingsPath } = await scratch();
+  const opts = { path, settingsPath };
+  const on = await handleUsagePrompt({ prompt: "/connect:usage" }, withClaude, opts);
+  assert.equal(on.decision, "block");
+  assert.match(on.reason, /^Connect usage in the status line: on\nclaude /);
+  assert.equal(await readFile(path, "utf8"), "claude [\x1b[33m22%\x1b[39m|80%]\n");
+  const off = await handleUsagePrompt({ prompt: "/connect:usage" }, empty, opts);
+  assert.equal(off.reason, "Connect usage in the status line: off");
+  assert.equal(await statusLineEnabled(path), false);
+  // Explicit on/off are idempotent, and off never reads quotas.
+  await handleUsagePrompt({ prompt: "/connect:usage on" }, empty, opts);
+  await handleUsagePrompt({ prompt: "/connect:usage on" }, empty, opts);
+  assert.equal(await statusLineEnabled(path), true);
+  const noRead = () => { throw new Error("must not collect"); };
+  await handleUsagePrompt({ prompt: "/connect:usage off" }, noRead, opts);
+  await handleUsagePrompt({ prompt: "/connect:usage off" }, noRead, opts);
+  assert.equal(await statusLineEnabled(path), false);
+});
+
+test("turning on says how to wire the status line until its script reads the file", async () => {
+  const { dir, path, settingsPath } = await scratch();
+  const opts = { path, settingsPath };
+  const hint = /does not print it yet[\s\S]*usage-line\.txt/;
+  assert.match((await handleUsagePrompt({ prompt: "/connect:usage on" }, empty, opts)).reason, hint);
+  const script = join(dir, "statusline.sh");
+  await writeFile(script, 'echo hi; f=~/.config/connect/usage-line.txt; [ -s "$f" ] && cat "$f"\n');
+  await writeFile(settingsPath, JSON.stringify({ statusLine: { type: "command", command: `bash ${script}` } }));
+  assert.doesNotMatch((await handleUsagePrompt({ prompt: "/connect:usage on" }, empty, opts)).reason, hint);
+});
+
+test("the first check failing still switches the line on, to be filled at the next refresh", async () => {
+  const { path, settingsPath } = await scratch();
+  const output = await handleUsagePrompt({ prompt: "/connect:usage on" }, async () => { throw new Error("secret"); },
+    { path, settingsPath });
+  assert.match(output.reason, /: on\nThe first quota check failed/);
+  assert.ok(!output.reason.includes("secret"));
+  assert.equal(await readFile(path, "utf8"), "");
+  assert.equal(await refreshStatusLine({ path, collect: empty }), true, "an empty line refreshes at once");
+});
+
+test("refresh writes only while on, and skips a line another session wrote this minute", async () => {
+  const { path } = await scratch();
+  const noRead = () => { throw new Error("must not collect"); };
+  assert.equal(await refreshStatusLine({ path, collect: noRead }), false);
+  assert.equal(await statusLineEnabled(path), false, "refresh never switches the line on");
+  await setStatusLine(true, { path, collect: withClaude });
+  assert.equal(await refreshStatusLine({ path, collect: noRead }), false);
+  const old = new Date(Date.now() - 120_000);
+  await utimes(path, old, old);
+  assert.equal(await refreshStatusLine({ path, collect: withClaude }), true);
+  assert.ok((await stat(path)).mtimeMs > old.getTime());
+  // Nothing answered: the file is empty, so a status line's [ -s ] prints nothing.
+  await utimes(path, old, old);
+  await refreshStatusLine({ path, collect: empty });
+  assert.equal(await readFile(path, "utf8"), "");
+  // Switched off while a refresh was reading quotas: it stays off.
+  await utimes(path, old, old);
+  const offMidway = async () => { await setStatusLine(false, { path }); return empty(); };
+  assert.equal(await refreshStatusLine({ path, collect: offMidway }), true);
+  assert.equal(await statusLineEnabled(path), false);
+});
+
+test("the status line file colors 5h like the rows; the plain --line format stays plain", () => {
+  const report = { providers: [{ name: "Claude", status: "ok", ...claudeQuotas({
+    five_hour: { utilization: 85, resets_at: reset } }) }] };
+  assert.equal(formatUsageLine(report, { color: true }), "claude [\x1b[31m15%\x1b[39m|n/a]");
+  assert.equal(formatUsageLine(report), "claude [15%|n/a]");
+});
+
 test("hook ignores other prompts, rejects arguments as data and never executes them", async () => {
   const noRead = () => { throw new Error("must not collect"); };
   for (const prompt of ["hello", "/connect:ask usage", "explain /connect:usage", "/connect:usage-other", "/usage"]) {
@@ -219,7 +324,7 @@ test("hook ignores other prompts, rejects arguments as data and never executes t
   for (const prompt of ["/connect:usage --other", "/connect:usage $(touch /tmp/never)", "/connect:usage\nask a model"]) {
     const result = await handleUsagePrompt({ prompt }, noRead);
     assert.equal(result.decision, "block");
-    assert.equal(result.reason, "Usage: /connect:usage [--json]");
+    assert.equal(result.reason, "Usage: /connect:usage [on|off|show|--json]");
   }
   const output = execFileSync(process.execPath, [new URL("../scripts/usage-hook.mjs", import.meta.url).pathname], {
     input: '{"hook_event_name":"UserPromptSubmit","prompt":"unrelated"}', encoding: "utf8",

@@ -1,6 +1,6 @@
 ---
-description: Show Claude, Codex and Antigravity account quotas without a model call
-argument-hint: "[--json]"
+description: Switch Connect's quota line in your status line on or off, or show quotas, without a model call
+argument-hint: "[on|off|show|--json]"
 disable-model-invocation: true
 ---
 

@@ -92,11 +92,12 @@ claude plugin uninstall connect@connect-local && claude plugin install connect@c
 | `/connect:resume <threadId> <question>` | read an earlier thread back, then continue it |
 | `/connect:config [args]` | choose model, effort and token ceilings (interactive with no args) |
 | `/connect:doctor` | health check: daemon, versions, remote control |
-| `/connect:usage [--json]` | current Claude, Codex and Antigravity quotas; script only, no model call |
+| `/connect:usage [on\|off\|show\|--json]` | switch the quota line in your status line on or off (no argument toggles), or show quotas; script only, no model call |
+| `/connect:compare <question>` | ask Codex and agy the same question at once, read-only, and compare |
 
 ### Check usage without a model
 
-`/connect:usage` shows four compact rows. Percentages are **remaining**; the bracketed values
+`/connect:usage show` shows four compact rows. Percentages are **remaining**; the bracketed values
 are countdowns to reset in hours and minutes, in `5h|7d` order. Missing windows are omitted:
 
 ```text
@@ -138,6 +139,39 @@ on Linux. For Antigravity file-backed sign-ins, set `CONNECT_AGY_CREDENTIALS` to
 profile (an object with `token.access_token`). It never prints or rewrites credentials. An expired
 sign-in is reported with instructions to refresh it in the provider CLI. Antigravity enterprise
 and API-key accounts are currently unsupported; subscription quotas are not API billing totals.
+
+### Status line
+
+`/connect:usage` with no argument switches a quota line in Claude Code's status line on or off;
+`/connect:usage on` and `/connect:usage off` say which. Turning it on also shows the four rows above.
+The line goes after whatever your status line already prints:
+
+```text
+[Opus 5.5 | ctx: 18%]  claude [78%|67%] codex [96%|99%] agy [n/a|100%]
+```
+
+Each bracket is `[5h|7d]` remaining, the 5h value colored as in the rows above; `n/a` means that
+window is not reported. `agy` is one row: the least remaining across its model families, never a
+sum. A provider Connect cannot find or read (not installed, signed out) has no row at all, so a
+machine without agy shows only `claude` and `codex`. Use `/connect:usage show` to see why one is
+missing.
+
+Claude Code runs your own status line command, so the plugin cannot add to it by itself. Connect
+keeps the line in `~/.config/connect/usage-line.txt` while it is on and deletes the file when it is
+off; add this to the end of your status line script once (`/connect:usage on` reminds you until
+the script reads the file):
+
+```bash
+f=~/.config/connect/usage-line.txt; if [ -s "$f" ]; then printf '  %s' "$(cat "$f")"; fi
+```
+
+A function-hooks module (`hooks/hud.mjs`) that Claude Code loads with the plugin keeps the file
+fresh. It runs `bin/connect.mjs usage refresh` when a session starts, every five minutes, and
+after a Connect call or a turn ends (at most once a minute), so it costs no model tokens. Several
+sessions share the file, and a refresh skips a line written in the last minute. While a Connect
+call runs, the same module pins the peer at work under the prompt, as
+`codex ▸ second_opinion 0:42`. Set `CONNECT_HUD=0` to turn the module off; it never runs in
+`claude -p`.
 
 ### Letting Claude decide
 
@@ -232,6 +266,13 @@ process; `--conversation <id>` continues an earlier one.
   started at `~/.config/connect/agy-conversations.jsonl`; `agy_threads` reads it.
 - The turn time cap (`CONNECT_TURN_TIMEOUT_MS`, default 60 min) applies to both peers.
 
+### Comparing both peers
+
+`/connect:compare <question>`, or Claude calling `peers_compare`, sends one question to Codex and
+agy together and returns both answers, each with its own thread or conversation id. It only takes
+read-only intents (`implement` is refused) and costs both peers' tokens. If one peer fails, the
+other's answer still comes back.
+
 ## Configuration
 
 `/connect:config` with no arguments opens **forms in the terminal**, drawn by the MCP server itself
@@ -266,6 +307,7 @@ to the next ask). Sandboxes are deliberately **not** configurable.
 | `CONNECT_CONFIG` | `~/.config/connect/config.json` | preferences file |
 | `CONNECT_CODEX_BIN` | resolved automatically | which `codex` binary to use |
 | `CONNECT_AGY_CREDENTIALS` | OS keyring | Antigravity token profile file for usage checks |
+| `CONNECT_HUD` | unset | `0` turns off the status line refresh and the running-peer line |
 | `CONNECT_TEST_DISRUPTIVE` | unset | `1` enables the daemon-restart test |
 
 ## Standalone CLI
@@ -276,6 +318,8 @@ Codex without Claude in the loop. It reads the same config file; `--model` overr
 node bin/connect.mjs doctor
 node bin/connect.mjs usage
 node bin/connect.mjs usage --json
+node bin/connect.mjs usage --line      # one line, as the status line shows it
+node bin/connect.mjs usage on          # or off: the status line's quota line
 node bin/connect.mjs threads 10
 node bin/connect.mjs ask --intent quick_answer "what version of node is this"
 node bin/connect.mjs ask --thread <id> "and what about the previous point?"
@@ -321,7 +365,13 @@ Usage checks have an offline suite that needs no sign-in and spends no model tok
 node --test test/usage.mjs
 ```
 
-For the existing Codex integration suite:
+The status line's module has its own tests, run by Claude Code's plugin test kit:
+
+```bash
+claude plugin test .
+```
+
+Both run in CI on every push. For the existing Codex integration suite:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"   # make sure the standalone codex comes first
@@ -374,7 +424,9 @@ continues on the same thread.
 mcp/                the MCP server
 skills/connect/     when Claude should reach for Codex
 commands/           slash commands
-hooks/hooks.json    intercept /connect:usage before model processing
+hooks/hooks.json    intercept /connect:usage before model processing; load hud.mjs
+hooks/hud.mjs       the status line (a function-hooks module, no Node)
+hooks/hud.test.ts   its tests, for claude plugin test
 scripts/usage-hook.mjs  display usage directly from a command hook
 bin/connect.mjs     standalone CLI
 src/
